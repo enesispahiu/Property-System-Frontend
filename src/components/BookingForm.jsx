@@ -80,8 +80,17 @@ function BookingForm({ property }) {
     setStatus("");
 
     try {
+      const propertyId = Number(property.id);
+
+      if (Number.isNaN(propertyId)) {
+        setStatus(
+          "This property cannot be booked because it does not have a valid database ID.",
+        );
+        return;
+      }
+
       const booking = await createBooking({
-        propertyId: property.id,
+        propertyId,
         startDate: form.startDate,
         endDate: form.endDate,
         guests: Number(form.guests),

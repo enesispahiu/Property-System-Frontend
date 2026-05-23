@@ -302,29 +302,18 @@ export async function getPropertyById(id) {
 }
 
 export async function createBooking(payload) {
-  try {
-    const currentUser = payload.userId ? null : await getCurrentUser();
+  const currentUser = payload.userId ? null : await getCurrentUser();
 
-    return await request("/bookings", {
-      method: "POST",
-      body: JSON.stringify({
-        propertyId: Number(payload.propertyId),
-        userId: Number(payload.userId || currentUser.id),
-        startDate: payload.startDate,
-        endDate: payload.endDate,
-        status: payload.status || "PENDING",
-      }),
-    });
-  } catch {
-    return {
-      id:
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : Date.now(),
-      status: "PENDING",
-      ...payload,
-    };
-  }
+  return request("/bookings", {
+    method: "POST",
+    body: JSON.stringify({
+      propertyId: Number(payload.propertyId),
+      userId: Number(payload.userId || currentUser.id),
+      startDate: payload.startDate,
+      endDate: payload.endDate,
+      status: payload.status || "PENDING",
+    }),
+  });
 }
 
 export async function getUserBookings(userId) {
@@ -359,57 +348,26 @@ export async function createReview(payload) {
 }
 
 export async function getDashboardSummary() {
-  try {
-    const user = await getCurrentUser();
+  const user = await getCurrentUser();
 
-    let bookings = [];
+  let bookings = [];
 
-    if (user?.id) {
-      bookings = await getUserBookings(user.id);
-    }
-
-    return {
-      user,
-      upcomingTrips: Array.isArray(bookings)
-        ? bookings.filter((booking) => booking.status !== "CANCELLED").length
-        : 0,
-      savedHomes: 0,
-      totalSpent: Array.isArray(bookings)
-        ? bookings.reduce(
-            (sum, booking) => sum + Number(booking.totalPrice || 0),
-            0,
-          )
-        : 0,
-      bookings,
-    };
-  } catch {
-    return {
-      user: {
-        email: "demo@property-system.test",
-        role: "TENANT",
-        tenantId: 1,
-      },
-      upcomingTrips: 2,
-      savedHomes: 0,
-      totalSpent: 2100,
-      bookings: [
-        {
-          id: 1,
-          startDate: "2026-06-12",
-          endDate: "2026-06-16",
-          status: "CONFIRMED",
-          totalPrice: 1140,
-          property: mockProperties[0],
-        },
-        {
-          id: 2,
-          startDate: "2026-07-04",
-          endDate: "2026-07-08",
-          status: "PENDING",
-          totalPrice: 960,
-          property: mockProperties[2],
-        },
-      ],
-    };
+  if (user?.id) {
+    bookings = await getUserBookings(user.id);
   }
+
+  return {
+    user,
+    upcomingTrips: Array.isArray(bookings)
+      ? bookings.filter((booking) => booking.status !== "CANCELLED").length
+      : 0,
+    savedHomes: 0,
+    totalSpent: Array.isArray(bookings)
+      ? bookings.reduce(
+          (sum, booking) => sum + Number(booking.totalPrice || 0),
+          0,
+        )
+      : 0,
+    bookings,
+  };
 }
