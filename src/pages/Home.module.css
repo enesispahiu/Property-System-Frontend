@@ -1,0 +1,27 @@
+.main {
+  padding: 52px 0 76px;
+}
+
+.intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.7fr);
+  gap: 28px;
+  align-items: end;
+  margin-bottom: 26px;
+}
+
+.intro h2 {
+  max-width: 720px;
+  margin-top: 14px;
+}
+
+.intro p:last-child {
+  margin: 0;
+  line-height: 1.65;
+}
+
+@media (max-width: 760px) {
+  .intro {
+    grid-template-columns: 1fr;
+  }
+}
