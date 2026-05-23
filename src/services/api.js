@@ -4,12 +4,17 @@ const API_URL =
   import.meta.env.REACT_APP_API_URL ||
   import.meta.env.VITE_API_URL ||
   "http://localhost:3000";
+
 const TOKEN_KEY = "property_system_access_token";
 const REFRESH_TOKEN_KEY = "property_system_refresh_token";
 const AUTH_EVENT = "property-system-auth-change";
 
 export function getAccessToken() {
   return localStorage.getItem(TOKEN_KEY);
+}
+
+export function getRefreshToken() {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
 export function isAuthenticated() {
@@ -134,14 +139,15 @@ export const mockProperties = [
   },
 ];
 
-async function request(path, options) {
+async function request(path, options = {}) {
   const token = getAccessToken();
+
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
+      ...options.headers,
     },
   });
 
@@ -206,10 +212,12 @@ export async function login(payload) {
   return data;
 }
 
+export async function getCurrentUser() {
+  return request("/auth/me");
+}
+
 export async function getProperties(filters = {}) {
   try {
-    // Backend integration point: replace `/properties` with your real endpoint
-    // and pass filters as query parameters supported by the API.
     return await request("/properties");
   } catch {
     return mockProperties.filter((property) => {
@@ -218,62 +226,188 @@ export async function getProperties(filters = {}) {
         property.location
           .toLowerCase()
           .includes(filters.location.toLowerCase());
+
       const matchesPrice = property.price <= Number(filters.maxPrice || 1000);
-      const matchesRating = property.rating >= Number(filters.minRating || 0);
+      const matchesRating =
+        property.rating >= Number(filters.minRating || filters.rating || 0);
 
       return matchesLocation && matchesPrice && matchesRating;
     });
   }
 }
 
+export async function searchProperties(filters = {}) {
+  try {
+    const queryParams = new URLSearchParams();
+
+    if (filters.location) {
+      queryParams.set("location", filters.location);
+    }
+
+    if (filters.minPrice) {
+      queryParams.set("minPrice", filters.minPrice);
+    }
+
+    if (filters.maxPrice) {
+      queryParams.set("maxPrice", filters.maxPrice);
+    }
+
+    if (filters.minRating) {
+      queryParams.set("rating", filters.minRating);
+    }
+
+    if (filters.rating) {
+      queryParams.set("rating", filters.rating);
+    }
+
+    if (filters.propertyType) {
+      queryParams.set("propertyType", filters.propertyType);
+    }
+
+    if (filters.sortBy) {
+      queryParams.set("sortBy", filters.sortBy);
+    }
+
+    if (filters.sort) {
+      queryParams.set("sort", filters.sort);
+    }
+
+    if (filters.page) {
+      queryParams.set("page", filters.page);
+    }
+
+    if (filters.limit) {
+      queryParams.set("limit", filters.limit);
+    }
+
+    const queryString = queryParams.toString();
+    const path = queryString
+      ? `/search/properties?${queryString}`
+      : "/search/properties";
+
+    return await request(path);
+  } catch {
+    return getProperties(filters);
+  }
+}
+
 export async function getPropertyById(id) {
   try {
-    // Backend integration point: GET `/properties/:id`.
     return await request(`/properties/${id}`);
   } catch {
-    return mockProperties.find((property) => property.id === id);
+    return mockProperties.find(
+      (property) => String(property.id) === String(id),
+    );
   }
 }
 
 export async function createBooking(payload) {
   try {
-    // Backend integration point: POST booking payload to `/bookings`.
+    const currentUser = payload.userId ? null : await getCurrentUser();
+
     return await request("/bookings", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        propertyId: Number(payload.propertyId),
+        userId: Number(payload.userId || currentUser.id),
+        startDate: payload.startDate,
+        endDate: payload.endDate,
+        status: payload.status || "PENDING",
+      }),
     });
   } catch {
-    return { id: crypto.randomUUID(), status: "pending", ...payload };
+    return {
+      id:
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : Date.now(),
+      status: "PENDING",
+      ...payload,
+    };
   }
+}
+
+export async function getUserBookings(userId) {
+  return request(`/bookings/user/${userId}`);
+}
+
+export async function cancelBooking(id) {
+  return request(`/bookings/${id}/cancel`, {
+    method: "PATCH",
+  });
+}
+
+export async function confirmBooking(id) {
+  return request(`/bookings/${id}/confirm`, {
+    method: "PATCH",
+  });
+}
+
+export async function getPropertyReviews(propertyId) {
+  return request(`/properties/${propertyId}/reviews`);
+}
+
+export async function getPropertyAverageRating(propertyId) {
+  return request(`/properties/${propertyId}/reviews/average`);
+}
+
+export async function createReview(payload) {
+  return request("/reviews", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function getDashboardSummary() {
   try {
-    // Backend integration point: GET authenticated user dashboard data.
-    return await request("/dashboard");
+    const user = await getCurrentUser();
+
+    let bookings = [];
+
+    if (user?.id) {
+      bookings = await getUserBookings(user.id);
+    }
+
+    return {
+      user,
+      upcomingTrips: Array.isArray(bookings)
+        ? bookings.filter((booking) => booking.status !== "CANCELLED").length
+        : 0,
+      savedHomes: 0,
+      totalSpent: Array.isArray(bookings)
+        ? bookings.reduce(
+            (sum, booking) => sum + Number(booking.totalPrice || 0),
+            0,
+          )
+        : 0,
+      bookings,
+    };
   } catch {
     return {
-      upcomingTrips: 3,
-      savedHomes: 12,
-      totalSpent: 1840,
+      user: {
+        email: "demo@property-system.test",
+        role: "TENANT",
+        tenantId: 1,
+      },
+      upcomingTrips: 2,
+      savedHomes: 0,
+      totalSpent: 2100,
       bookings: [
         {
           id: 1,
-          title: "Lakeview Villa",
-          date: "Jun 12-16",
-          status: "Confirmed",
+          startDate: "2026-06-12",
+          endDate: "2026-06-16",
+          status: "CONFIRMED",
+          totalPrice: 1140,
+          property: mockProperties[0],
         },
         {
           id: 2,
-          title: "Cedar Ridge Cabin",
-          date: "Jul 4-8",
-          status: "Awaiting payment",
-        },
-        {
-          id: 3,
-          title: "Shibuya Studio",
-          date: "Aug 20-25",
-          status: "Confirmed",
+          startDate: "2026-07-04",
+          endDate: "2026-07-08",
+          status: "PENDING",
+          totalPrice: 960,
+          property: mockProperties[2],
         },
       ],
     };
