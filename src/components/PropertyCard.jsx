@@ -1,0 +1,55 @@
+import { Link } from "react-router-dom";
+import styles from "./PropertyCard.module.css";
+import { propertyImages } from "../assets/propertyImages.js";
+
+function PropertyCard({ property }) {
+  if (!property) {
+    return null;
+  }
+
+  const image =
+    property.image || property.images?.[0]?.url || propertyImages.fallback;
+
+  const rating = property.rating || "4.8";
+  const price = property.price ? `€${property.price}` : "Price on request";
+  const location = property.location || "Location not specified";
+  const description =
+    property.description || "No description available for this property.";
+
+  return (
+    <article className={styles.card}>
+      <Link
+        to={`/properties/${property.id}`}
+        className={styles.imageLink}
+        aria-label={`View details for ${property.title}`}
+      >
+        <img
+          src={image}
+          alt={property.title || "Property image"}
+          className={styles.image}
+          loading="lazy"
+        />
+      </Link>
+
+      <div className={styles.content}>
+        <div className={styles.header}>
+          <h3>{property.title || "Untitled property"}</h3>
+          <span className={styles.rating}>★ {rating}</span>
+        </div>
+
+        <p className={styles.location}>{location}</p>
+        <p className={styles.description}>{description}</p>
+
+        <div className={styles.footer}>
+          <span className={styles.price}>{price}/night</span>
+
+          <Link to={`/properties/${property.id}`} className={styles.details}>
+            View details
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export default PropertyCard;
