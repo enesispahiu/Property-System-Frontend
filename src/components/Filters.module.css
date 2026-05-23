@@ -1,0 +1,203 @@
+.filtersContainer {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+  overflow: hidden;
+}
+
+.filtersHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #f9f9f9;
+}
+
+.toggleButton {
+  display: none;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #667eea;
+  background: none;
+  border: 1px solid #667eea;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  gap: 8px;
+  align-items: center;
+}
+
+.toggleButton:hover {
+  background-color: #f0f0ff;
+}
+
+.toggleIcon {
+  display: inline-block;
+  width: 20px;
+  text-align: center;
+}
+
+.clearButton {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f5576c;
+  background: none;
+  border: 1px solid #f5576c;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.clearButton:hover {
+  background-color: #ffe5e8;
+}
+
+.filtersContent {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.filterLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.filterSelect {
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+  outline: none;
+}
+
+.filterSelect:hover,
+.filterSelect:focus {
+  border-color: #667eea;
+}
+
+.priceInputs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.priceInputWrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.priceLabel {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.priceInput {
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.priceInput:focus {
+  border-color: #667eea;
+}
+
+.priceSeparator {
+  color: #999;
+  margin-top: 24px;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .filtersContent {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .toggleButton {
+    display: flex;
+  }
+
+  .filtersHeader {
+    padding: 12px 16px;
+  }
+
+  .filtersContent {
+    display: none;
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .filtersContainer.open .filtersContent {
+    display: grid;
+  }
+
+  .filterLabel {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .filterSelect,
+  .priceInput {
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .filtersHeader {
+    padding: 10px 12px;
+  }
+
+  .toggleButton {
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+
+  .clearButton {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .filtersContent {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .filterLabel {
+    font-size: 12px;
+  }
+
+  .filterSelect,
+  .priceInput {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .priceInputs {
+    gap: 8px;
+  }
+}
