@@ -106,6 +106,7 @@ function Dashboard() {
                 <div>
                   <h3>{booking.property?.title || `Booking #${booking.id}`}</h3>
                   <p>
+                    Booking #{booking.id} · property #{booking.propertyId} ·{" "}
                     {formatDate(booking.startDate)} -{" "}
                     {formatDate(booking.endDate)}
                   </p>

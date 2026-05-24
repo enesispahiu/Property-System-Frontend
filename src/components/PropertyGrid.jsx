@@ -6,7 +6,7 @@ function PropertyGrid({ properties = [] }) {
     return (
       <div className={styles.empty}>
         <h2>No properties found</h2>
-        <p>Try changing your search filters.</p>
+        <p>No properties found. Admin can add properties from Admin Panel.</p>
       </div>
     );
   }

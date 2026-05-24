@@ -1,9 +1,6 @@
 import { propertyImages } from "../assets/propertyImages.js";
 
-const API_URL =
-  import.meta.env.REACT_APP_API_URL ||
-  import.meta.env.VITE_API_URL ||
-  "http://localhost:3000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const TOKEN_KEY = "property_system_access_token";
 const REFRESH_TOKEN_KEY = "property_system_refresh_token";
@@ -142,14 +139,24 @@ export const mockProperties = [
 async function request(path, options = {}) {
   const token = getAccessToken();
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
+  let response;
+
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+  } catch {
+    const error = new Error(
+      `Backend is not running at ${API_URL}. Check that the backend is running and CORS is enabled.`,
+    );
+    error.isConnectionError = true;
+    throw error;
+  }
 
   if (!response.ok) {
     let message = `API request failed: ${response.status}`;
@@ -161,10 +168,44 @@ async function request(path, options = {}) {
       message = response.statusText || message;
     }
 
-    throw new Error(Array.isArray(message) ? message.join(", ") : message);
+    const error = new Error(
+      Array.isArray(message) ? message.join(", ") : message,
+    );
+    error.status = response.status;
+
+    if (
+      response.status === 401 &&
+      path !== "/auth/login" &&
+      path !== "/auth/register"
+    ) {
+      logout();
+      error.message = "Unauthorized, please login again.";
+
+      if (window.location.pathname !== "/login") {
+        window.location.assign("/login");
+      }
+    }
+
+    throw error;
+  }
+
+  if (response.status === 204) {
+    return null;
   }
 
   return response.json();
+}
+
+function normalizePropertyList(result) {
+  if (Array.isArray(result)) {
+    return result;
+  }
+
+  if (Array.isArray(result?.data)) {
+    return result.data;
+  }
+
+  return [];
 }
 
 function extractAccessToken(data) {
@@ -218,8 +259,37 @@ export async function getCurrentUser() {
 
 export async function getProperties(filters = {}) {
   try {
-    return await request("/properties");
-  } catch {
+    const queryParams = new URLSearchParams();
+
+    if (filters.location) {
+      queryParams.set("location", filters.location);
+    }
+
+    if (filters.minPrice) {
+      queryParams.set("minPrice", filters.minPrice);
+    }
+
+    if (filters.maxPrice) {
+      queryParams.set("maxPrice", filters.maxPrice);
+    }
+
+    if (filters.page) {
+      queryParams.set("page", filters.page);
+    }
+
+    if (filters.limit) {
+      queryParams.set("limit", filters.limit);
+    }
+
+    const queryString = queryParams.toString();
+    const path = queryString ? `/properties?${queryString}` : "/properties";
+
+    return normalizePropertyList(await request(path));
+  } catch (error) {
+    if (error.isConnectionError || error.status === 401) {
+      throw error;
+    }
+
     return mockProperties.filter((property) => {
       const matchesLocation =
         !filters.location ||
@@ -227,7 +297,9 @@ export async function getProperties(filters = {}) {
           .toLowerCase()
           .includes(filters.location.toLowerCase());
 
-      const matchesPrice = property.price <= Number(filters.maxPrice || 1000);
+      const matchesPrice =
+        property.price >= Number(filters.minPrice || 0) &&
+        property.price <= Number(filters.maxPrice || 1000);
       const matchesRating =
         property.rating >= Number(filters.minRating || filters.rating || 0);
 
@@ -285,8 +357,12 @@ export async function searchProperties(filters = {}) {
       ? `/search/properties?${queryString}`
       : "/search/properties";
 
-    return await request(path);
-  } catch {
+    return normalizePropertyList(await request(path));
+  } catch (error) {
+    if (error.isConnectionError || error.status === 401) {
+      throw error;
+    }
+
     return getProperties(filters);
   }
 }
@@ -294,30 +370,109 @@ export async function searchProperties(filters = {}) {
 export async function getPropertyById(id) {
   try {
     return await request(`/properties/${id}`);
-  } catch {
+  } catch (error) {
+    if (error.isConnectionError || error.status === 401) {
+      throw error;
+    }
+
+    const publicProperties = await searchProperties({ page: 1, limit: 100 });
+    const publicProperty = publicProperties.find(
+      (property) => String(property.id) === String(id),
+    );
+
+    if (publicProperty) {
+      return publicProperty;
+    }
+
     return mockProperties.find(
       (property) => String(property.id) === String(id),
     );
   }
 }
 
-export async function createBooking(payload) {
-  const currentUser = payload.userId ? null : await getCurrentUser();
+export async function createProperty(payload) {
+  return request("/properties", {
+    method: "POST",
+    body: JSON.stringify({
+      ...payload,
+      price: Number(payload.price),
+      tenantId: Number(payload.tenantId),
+      ownerId: Number(payload.ownerId),
+    }),
+  });
+}
 
+export async function updateProperty(id, payload) {
+  return request(`/properties/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      ...payload,
+      ...(payload.price !== undefined ? { price: Number(payload.price) } : {}),
+      ...(payload.tenantId !== undefined
+        ? { tenantId: Number(payload.tenantId) }
+        : {}),
+      ...(payload.ownerId !== undefined ? { ownerId: Number(payload.ownerId) } : {}),
+    }),
+  });
+}
+
+export async function deleteProperty(id) {
+  return request(`/properties/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function createBooking(payload) {
   return request("/bookings", {
     method: "POST",
     body: JSON.stringify({
       propertyId: Number(payload.propertyId),
-      userId: Number(payload.userId || currentUser.id),
       startDate: payload.startDate,
       endDate: payload.endDate,
-      status: payload.status || "PENDING",
     }),
+  });
+}
+
+export async function getBookings() {
+  return request("/bookings");
+}
+
+export async function getBookingById(id) {
+  return request(`/bookings/${id}`);
+}
+
+export async function updateBookingStatus(id, status) {
+  return request(`/bookings/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function getUsers() {
+  return request("/users");
+}
+
+export async function updateUserRole(id, roleId) {
+  return request(`/users/${id}/role`, {
+    method: "PATCH",
+    body: JSON.stringify({ roleId: Number(roleId) }),
+  });
+}
+
+export async function deleteUser(id) {
+  return request(`/users/${id}`, {
+    method: "DELETE",
   });
 }
 
 export async function getUserBookings(userId) {
   return request(`/bookings/user/${userId}`);
+}
+
+export async function deleteBooking(id) {
+  return request(`/bookings/${id}`, {
+    method: "DELETE",
+  });
 }
 
 export async function cancelBooking(id) {
@@ -336,6 +491,18 @@ export async function getPropertyReviews(propertyId) {
   return request(`/properties/${propertyId}/reviews`);
 }
 
+export async function getReviews() {
+  try {
+    return await request("/reviews");
+  } catch (error) {
+    if (error.status === 404) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
 export async function getPropertyAverageRating(propertyId) {
   return request(`/properties/${propertyId}/reviews/average`);
 }
@@ -347,13 +514,25 @@ export async function createReview(payload) {
   });
 }
 
+export async function deleteReview(id) {
+  return request(`/reviews/${id}`, {
+    method: "DELETE",
+  });
+}
+
 export async function getDashboardSummary() {
   const user = await getCurrentUser();
 
   let bookings = [];
 
-  if (user?.id) {
-    bookings = await getUserBookings(user.id);
+  try {
+    bookings = await getBookings();
+  } catch (error) {
+    if (error.status === 404 && user?.id) {
+      bookings = await getUserBookings(user.id);
+    } else {
+      throw error;
+    }
   }
 
   return {

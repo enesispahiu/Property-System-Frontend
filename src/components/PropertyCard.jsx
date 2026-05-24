@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import styles from "./PropertyCard.module.css";
 import { propertyImages } from "../assets/propertyImages.js";
+import styles from "./PropertyCard.module.css";
 
 function PropertyCard({ property }) {
   if (!property) {
@@ -9,9 +9,8 @@ function PropertyCard({ property }) {
 
   const image =
     property.image || property.images?.[0]?.url || propertyImages.fallback;
-
-  const rating = property.rating || "4.8";
-  const price = property.price ? `€${property.price}` : "Price on request";
+  const rating = property.averageRating || property.rating || "4.8";
+  const price = property.price ? `$${property.price}` : "Price on request";
   const location = property.location || "Location not specified";
   const description =
     property.description || "No description available for this property.";
@@ -21,7 +20,7 @@ function PropertyCard({ property }) {
       <Link
         to={`/properties/${property.id}`}
         className={styles.imageLink}
-        aria-label={`View details for ${property.title}`}
+        aria-label={`View details for ${property.title || "property"}`}
       >
         <img
           src={image}
@@ -34,7 +33,7 @@ function PropertyCard({ property }) {
       <div className={styles.content}>
         <div className={styles.header}>
           <h3>{property.title || "Untitled property"}</h3>
-          <span className={styles.rating}>★ {rating}</span>
+          <span className={styles.rating}>Rating {rating}</span>
         </div>
 
         <p className={styles.location}>{location}</p>
@@ -43,9 +42,14 @@ function PropertyCard({ property }) {
         <div className={styles.footer}>
           <span className={styles.price}>{price}/night</span>
 
-          <Link to={`/properties/${property.id}`} className={styles.details}>
-            View details
-          </Link>
+          <div className={styles.actions}>
+            <Link to={`/properties/${property.id}`} className={styles.details}>
+              View details
+            </Link>
+            <Link to={`/properties/${property.id}`} className={styles.book}>
+              Book now
+            </Link>
+          </div>
         </div>
       </div>
     </article>
