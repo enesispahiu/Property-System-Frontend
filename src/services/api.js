@@ -558,6 +558,49 @@ export async function deleteReview(id) {
   });
 }
 
+export async function aiChat(message) {
+  const properties = await searchProperties({ page: 1, limit: 12 }).catch(() => []);
+  const propertyContext = properties
+    .map((property) => {
+      return `${property.title} | ${property.location} | $${property.price}/night | ${property.description || "No description"}`;
+    })
+    .join("\n");
+  const prompt = propertyContext
+    ? `
+User request:
+${message}
+
+Available properties:
+${propertyContext}
+
+Answer with a helpful recommendation. Suggest specific properties when relevant. Do not ask many questions.
+`
+    : message;
+
+  return request("/ai/chat", {
+    method: "POST",
+    body: JSON.stringify({ message: prompt }),
+  });
+}
+
+export async function generatePropertyDescription(payload) {
+  return request("/ai/property-description", {
+    method: "POST",
+    body: JSON.stringify({
+      title: payload.title,
+      location: payload.location,
+      price: Number(payload.price),
+    }),
+  });
+}
+
+export async function analyzeReview(comment) {
+  return request("/ai/review-analysis", {
+    method: "POST",
+    body: JSON.stringify({ comment }),
+  });
+}
+
 export async function getDashboardSummary() {
   const user = await getCurrentUser();
   const bookings = user?.id ? await getUserBookings(user.id) : [];

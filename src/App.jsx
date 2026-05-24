@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Login from './pages/Login.jsx';
 import Signup from './pages/Signup.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
+import AiAssistantButton from './components/AiAssistantButton.jsx';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/admin" element={<AdminPanel />} />
       </Routes>
+      <AiAssistantButton />
     </div>
   );
 }

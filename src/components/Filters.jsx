@@ -37,8 +37,8 @@ function Filters({ filters, onChange }) {
           name="maxPrice"
           type="range"
           min="100"
-          max="400"
-          step="10"
+          max="1000"
+          step="25"
           value={filters.maxPrice}
           onChange={updateFilter}
         />
