@@ -27,10 +27,32 @@ export function setRefreshToken(token) {
   localStorage.setItem(REFRESH_TOKEN_KEY, token);
 }
 
-export function logout() {
+function clearAuthTokens() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   window.dispatchEvent(new Event(AUTH_EVENT));
+}
+
+export async function logout() {
+  const refreshToken = getRefreshToken();
+  const accessToken = getAccessToken();
+
+  try {
+    if (refreshToken) {
+      await fetch(`${API_URL}/auth/logout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+    }
+  } catch {
+    // Local logout must succeed even when the API is unavailable.
+  } finally {
+    clearAuthTokens();
+  }
 }
 
 export function onAuthChange(callback) {
@@ -178,7 +200,7 @@ async function request(path, options = {}) {
       path !== "/auth/login" &&
       path !== "/auth/register"
     ) {
-      logout();
+      clearAuthTokens();
       error.message = "Unauthorized, please login again.";
 
       if (window.location.pathname !== "/login") {
@@ -206,6 +228,26 @@ function normalizePropertyList(result) {
   }
 
   return [];
+}
+
+function markMockProperty(property) {
+  return property ? { ...property, isMock: true } : property;
+}
+
+function filterMockProperties(filters = {}) {
+  return mockProperties.filter((property) => {
+    const matchesLocation =
+      !filters.location ||
+      property.location.toLowerCase().includes(filters.location.toLowerCase());
+
+    const matchesPrice =
+      property.price >= Number(filters.minPrice || 0) &&
+      property.price <= Number(filters.maxPrice || 1000);
+    const matchesRating =
+      property.rating >= Number(filters.minRating || filters.rating || 0);
+
+    return matchesLocation && matchesPrice && matchesRating;
+  }).map(markMockProperty);
 }
 
 function extractAccessToken(data) {
@@ -290,21 +332,7 @@ export async function getProperties(filters = {}) {
       throw error;
     }
 
-    return mockProperties.filter((property) => {
-      const matchesLocation =
-        !filters.location ||
-        property.location
-          .toLowerCase()
-          .includes(filters.location.toLowerCase());
-
-      const matchesPrice =
-        property.price >= Number(filters.minPrice || 0) &&
-        property.price <= Number(filters.maxPrice || 1000);
-      const matchesRating =
-        property.rating >= Number(filters.minRating || filters.rating || 0);
-
-      return matchesLocation && matchesPrice && matchesRating;
-    });
+    return filterMockProperties(filters);
   }
 }
 
@@ -363,11 +391,25 @@ export async function searchProperties(filters = {}) {
       throw error;
     }
 
-    return getProperties(filters);
+    return filterMockProperties(filters);
   }
 }
 
 export async function getPropertyById(id) {
+  if (!isAuthenticated()) {
+    const publicProperties = await searchProperties({ page: 1, limit: 100 });
+    const publicProperty = publicProperties.find(
+      (property) => String(property.id) === String(id),
+    );
+
+    return (
+      publicProperty ||
+      markMockProperty(
+        mockProperties.find((property) => String(property.id) === String(id)),
+      )
+    );
+  }
+
   try {
     return await request(`/properties/${id}`);
   } catch (error) {
@@ -384,8 +426,8 @@ export async function getPropertyById(id) {
       return publicProperty;
     }
 
-    return mockProperties.find(
-      (property) => String(property.id) === String(id),
+    return markMockProperty(
+      mockProperties.find((property) => String(property.id) === String(id)),
     );
   }
 }
@@ -466,7 +508,7 @@ export async function deleteUser(id) {
 }
 
 export async function getUserBookings(userId) {
-  return request(`/bookings/user/${userId}`);
+  return normalizeBookingList(await request(`/bookings/user/${userId}`));
 }
 
 export async function deleteBooking(id) {
@@ -491,16 +533,12 @@ export async function getPropertyReviews(propertyId) {
   return request(`/properties/${propertyId}/reviews`);
 }
 
-export async function getReviews() {
-  try {
-    return await request("/reviews");
-  } catch (error) {
-    if (error.status === 404) {
-      return [];
-    }
-
-    throw error;
+export async function getReviews(propertyId) {
+  if (!propertyId) {
+    return [];
   }
+
+  return getPropertyReviews(propertyId);
 }
 
 export async function getPropertyAverageRating(propertyId) {
@@ -522,18 +560,7 @@ export async function deleteReview(id) {
 
 export async function getDashboardSummary() {
   const user = await getCurrentUser();
-
-  let bookings = [];
-
-  try {
-    bookings = await getBookings();
-  } catch (error) {
-    if (error.status === 404 && user?.id) {
-      bookings = await getUserBookings(user.id);
-    } else {
-      throw error;
-    }
-  }
+  const bookings = user?.id ? await getUserBookings(user.id) : [];
 
   return {
     user,
@@ -549,4 +576,30 @@ export async function getDashboardSummary() {
       : 0,
     bookings,
   };
+}
+
+function normalizeBookingList(result) {
+  const bookings = Array.isArray(result)
+    ? result
+    : Array.isArray(result?.data)
+      ? result.data
+      : [];
+
+  return bookings.map((booking) => ({
+    ...booking,
+    property: booking.property
+      ? {
+          ...booking.property,
+          title: booking.property.title || booking.property.name,
+          location:
+            booking.property.location ||
+            booking.property.address ||
+            booking.property.city,
+        }
+      : null,
+    totalPrice: Number(booking.totalPrice || booking.total_price || 0),
+    startDate: booking.startDate || booking.start_date,
+    endDate: booking.endDate || booking.end_date,
+    status: booking.status || "PENDING",
+  }));
 }

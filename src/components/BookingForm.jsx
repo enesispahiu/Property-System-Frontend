@@ -54,6 +54,7 @@ function BookingForm({ property }) {
   const [status, setStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const isDemoProperty = Boolean(property?.isMock);
   const pricePerNight = Number(property?.price || 0);
   const nights = useMemo(
     () => getNights(form.startDate, form.endDate),
@@ -70,6 +71,13 @@ function BookingForm({ property }) {
 
   async function handleSubmit(event) {
     event.preventDefault();
+
+    if (isDemoProperty) {
+      setStatus(
+        "This demo property cannot be booked because it does not exist in the backend.",
+      );
+      return;
+    }
 
     const nextErrors = validateBooking(form);
     setErrors(nextErrors);
@@ -99,7 +107,9 @@ function BookingForm({ property }) {
 
       setStatus(`Booking ${booking.status || "created"} successfully.`);
       setForm(initialForm);
-      navigate("/dashboard");
+      window.setTimeout(() => {
+        navigate("/dashboard");
+      }, 700);
     } catch (error) {
       setStatus(`Booking failed: ${error.message || "Booking could not be created."}`);
     } finally {
@@ -162,11 +172,21 @@ function BookingForm({ property }) {
         <strong>${totalPrice.toFixed(2)}</strong>
       </div>
 
-      <button className={styles.submit} type="submit" disabled={isSubmitting}>
+      <button
+        className={styles.submit}
+        type="submit"
+        disabled={isSubmitting || isDemoProperty}
+      >
         {isSubmitting ? "Submitting..." : "Reserve"}
       </button>
 
-      {status ? <p className={styles.status}>{status}</p> : null}
+      {isDemoProperty ? (
+        <p className={styles.status}>
+          This demo property cannot be booked because it does not exist in the backend.
+        </p>
+      ) : status ? (
+        <p className={styles.status}>{status}</p>
+      ) : null}
     </form>
   );
 }

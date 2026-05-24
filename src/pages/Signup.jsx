@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { register } from '../services/api.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import styles from './Signup.module.css';
 
 const initialForm = {
@@ -40,6 +40,7 @@ function validate(form) {
 
 function Signup() {
   const navigate = useNavigate();
+  const { register } = useAuth();
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');

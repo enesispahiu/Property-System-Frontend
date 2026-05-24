@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Filters from '../components/Filters.jsx';
 import HeroSearch from '../components/HeroSearch.jsx';
 import PropertyGrid from '../components/PropertyGrid.jsx';
-import { getProperties } from '../services/api.js';
+import { searchProperties } from '../services/api.js';
 import styles from './Home.module.css';
 
 function Home() {
@@ -24,7 +24,7 @@ function Home() {
       setError('');
 
       try {
-        const data = await getProperties({
+        const data = await searchProperties({
           ...filters,
           page: 1,
           limit: 10,
@@ -66,8 +66,7 @@ function Home() {
             <h2 className="section-title">Homes with polished spaces and practical details</h2>
           </div>
           <p className="muted">
-            Filter by destination, nightly budget, and guest rating. Property data is ready to
-            connect to your backend when endpoints are available.
+            Filter live property listings by destination, nightly budget, and guest rating.
           </p>
         </section>
         <div className="layout-grid">

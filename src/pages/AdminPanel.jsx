@@ -287,7 +287,7 @@ function AdminPanel() {
                 <div>
                   <strong>#{entry.id} {entry.email}</strong>
                   <span>
-                    {entry.role?.name || "No role"} · tenant #{entry.tenantId}
+                    {entry.role?.name || "No role"} - tenant #{entry.tenantId}
                   </span>
                 </div>
                 <select
@@ -378,7 +378,7 @@ function AdminPanel() {
                 <div>
                   <strong>#{property.id} {property.title}</strong>
                   <span>
-                    {property.location} · ${property.price} · tenant #{property.tenantId} · owner #{property.ownerId}
+                    {property.location} - ${property.price} - tenant #{property.tenantId} - owner #{property.ownerId}
                   </span>
                 </div>
                 <button type="button" onClick={() => beginEditProperty(property)}>
@@ -407,10 +407,10 @@ function AdminPanel() {
                 <div>
                   <strong>Booking #{booking.id}</strong>
                   <span>
-                    {booking.property?.title || `property #${booking.propertyId}`} ·{" "}
-                    {booking.user?.email || `user #${booking.userId}`} ·{" "}
+                    {booking.property?.title || `property #${booking.propertyId}`} -{" "}
+                    {booking.user?.email || `user #${booking.userId}`} -{" "}
                     {formatDate(booking.startDate)} to {formatDate(booking.endDate)}
-                    {" "}· created {formatDate(booking.createdAt)}
+                    {" "}- created {formatDate(booking.createdAt)}
                   </span>
                 </div>
                 <select
@@ -463,12 +463,12 @@ function AdminPanel() {
               <article key={review.id} className={styles.row}>
                 <div>
                   <strong>
-                    Review #{review.id} · {review.rating}/5 ·{" "}
+                    Review #{review.id} - {review.rating}/5 -{" "}
                     {review.user?.email || `user #${review.userId}`}
                   </strong>
                   <span>
-                    {review.property?.title || `property #${review.propertyId}`} ·{" "}
-                    {formatDate(review.createdAt)} · {review.comment}
+                    {review.property?.title || `property #${review.propertyId}`} -{" "}
+                    {formatDate(review.createdAt)} - {review.comment}
                   </span>
                 </div>
                 <button type="button" onClick={() => handleDeleteReview(review.id)}>
