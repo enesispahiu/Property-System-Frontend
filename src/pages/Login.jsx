@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { login } from '../services/api.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import styles from './Login.module.css';
 
 const initialForm = {
@@ -26,6 +26,7 @@ function validate(form) {
 
 function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');

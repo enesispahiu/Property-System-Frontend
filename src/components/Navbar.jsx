@@ -1,38 +1,10 @@
-import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import {
-  getCurrentUser,
-  isAuthenticated,
-  logout,
-  onAuthChange,
-} from '../services/api.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import styles from './Navbar.module.css';
 
 function Navbar() {
   const navigate = useNavigate();
-  const [loggedIn, setLoggedIn] = useState(isAuthenticated);
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    async function syncAuth() {
-      const authenticated = isAuthenticated();
-      setLoggedIn(authenticated);
-
-      if (!authenticated) {
-        setUser(null);
-        return;
-      }
-
-      try {
-        setUser(await getCurrentUser());
-      } catch {
-        setUser(null);
-      }
-    }
-
-    syncAuth();
-    return onAuthChange(syncAuth);
-  }, []);
+  const { isAuthenticated, logout, user } = useAuth();
 
   async function handleLogout() {
     await logout();
@@ -66,7 +38,7 @@ function Navbar() {
           ) : null}
         </div>
         <div className={styles.actions}>
-          {loggedIn ? (
+          {isAuthenticated ? (
             <button className={styles.hostButton} onClick={handleLogout}>
               Logout
             </button>

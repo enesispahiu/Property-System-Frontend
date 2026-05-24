@@ -4,6 +4,7 @@ import BookingForm from "../components/BookingForm.jsx";
 import { propertyImages } from "../assets/propertyImages.js";
 import {
   createReview,
+  getPropertyAverageRating,
   getPropertyById,
   getPropertyReviews,
 } from "../services/api.js";
@@ -14,6 +15,7 @@ function PropertyDetails() {
 
   const [property, setProperty] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [ratingSummary, setRatingSummary] = useState(null);
   const [reviewForm, setReviewForm] = useState({ rating: "5", comment: "" });
   const [reviewStatus, setReviewStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -25,13 +27,15 @@ function PropertyDetails() {
       setError("");
 
       try {
-        const [propertyData, reviewData] = await Promise.all([
+        const [propertyData, reviewData, averageData] = await Promise.all([
           getPropertyById(id),
           getPropertyReviews(id).catch(() => []),
+          getPropertyAverageRating(id).catch(() => null),
         ]);
 
         setProperty(propertyData);
         setReviews(Array.isArray(reviewData) ? reviewData : []);
+        setRatingSummary(averageData);
       } catch (err) {
         setError(err.message || "Failed to load property");
       } finally {
@@ -57,6 +61,11 @@ function PropertyDetails() {
     event.preventDefault();
     setReviewStatus("");
 
+    if (!reviewForm.comment.trim()) {
+      setReviewStatus("Please add a short comment before posting your review.");
+      return;
+    }
+
     try {
       const review = await createReview({
         propertyId: Number(property.id),
@@ -64,7 +73,13 @@ function PropertyDetails() {
         comment: reviewForm.comment.trim(),
       });
 
-      setReviews((current) => [review, ...current]);
+      const [nextReviews, nextAverage] = await Promise.all([
+        getPropertyReviews(property.id).catch(() => [review, ...reviews]),
+        getPropertyAverageRating(property.id).catch(() => null),
+      ]);
+
+      setReviews(Array.isArray(nextReviews) ? nextReviews : [review, ...reviews]);
+      setRatingSummary(nextAverage);
       setReviewForm({ rating: "5", comment: "" });
       setReviewStatus("Review posted successfully.");
     } catch (reviewError) {
@@ -86,9 +101,19 @@ function PropertyDetails() {
 
   const image = property.image || property.images?.[0]?.url || propertyImages.fallback;
   const reviewCount =
+    ratingSummary?.totalReviews ||
     property.totalReviews ||
     (Array.isArray(property.reviews) ? property.reviews.length : reviews.length);
-  const rating = property.averageRating || property.rating || "4.8";
+  const rating =
+    ratingSummary?.averageRating ||
+    property.averageRating ||
+    property.rating ||
+    (reviews.length
+      ? (
+          reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
+          reviews.length
+        ).toFixed(1)
+      : "No ratings");
 
   return (
     <main className={styles.container}>
