@@ -25,3 +25,6 @@
     grid-template-columns: 1fr;
   }
 }
+.homePage {
+  min-height: 100vh;
+}
