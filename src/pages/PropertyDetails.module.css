@@ -124,6 +124,26 @@
   line-height: 1.75;
 }
 
+.bookingSection {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 28px;
+  align-items: start;
+  margin-top: 34px;
+  padding-top: 28px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.bookingSection h2 {
+  margin-top: 0;
+  color: #111827;
+}
+
+.bookingSection p {
+  color: #4b5563;
+  line-height: 1.7;
+}
+
 .amenities {
   display: flex;
   flex-wrap: wrap;
@@ -149,6 +169,10 @@
 
 @media (max-width: 850px) {
   .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .bookingSection {
     grid-template-columns: 1fr;
   }
 

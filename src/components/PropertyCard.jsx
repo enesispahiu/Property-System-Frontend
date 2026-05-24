@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import styles from "./PropertyCard.module.css";
 import { propertyImages } from "../assets/propertyImages.js";
+import styles from "./PropertyCard.module.css";
 
 function PropertyCard({ property }) {
   if (!property) {
@@ -11,7 +11,7 @@ function PropertyCard({ property }) {
     property.image || property.images?.[0]?.url || propertyImages.fallback;
 
   const rating = property.rating || "4.8";
-  const price = property.price ? `€${property.price}` : "Price on request";
+  const price = property.price ? `$${property.price}` : "Price on request";
   const location = property.location || "Location not specified";
   const description =
     property.description || "No description available for this property.";
@@ -34,7 +34,7 @@ function PropertyCard({ property }) {
       <div className={styles.content}>
         <div className={styles.header}>
           <h3>{property.title || "Untitled property"}</h3>
-          <span className={styles.rating}>★ {rating}</span>
+          <span className={styles.rating}>Rating {rating}</span>
         </div>
 
         <p className={styles.location}>{location}</p>

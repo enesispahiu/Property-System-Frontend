@@ -1,8 +1,8 @@
 import { propertyImages } from "../assets/propertyImages.js";
 
 const API_URL =
-  import.meta.env.REACT_APP_API_URL ||
   import.meta.env.VITE_API_URL ||
+  import.meta.env.REACT_APP_API_URL ||
   "http://localhost:3000";
 
 const TOKEN_KEY = "property_system_access_token";
@@ -167,6 +167,46 @@ async function request(path, options = {}) {
   return response.json();
 }
 
+function normalizeAmenity(amenity) {
+  if (typeof amenity === "string") {
+    return amenity;
+  }
+
+  return amenity?.amenity?.name || amenity?.name || "";
+}
+
+function normalizeProperty(property) {
+  if (!property) {
+    return property;
+  }
+
+  const averageRating =
+    property.averageRating ??
+    property.rating ??
+    (Array.isArray(property.reviews) && property.reviews.length
+      ? property.reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
+        property.reviews.length
+      : undefined);
+
+  return {
+    ...property,
+    image: property.image || property.images?.[0]?.url || propertyImages.fallback,
+    amenities: Array.isArray(property.amenities)
+      ? property.amenities.map(normalizeAmenity).filter(Boolean)
+      : [],
+    rating:
+      averageRating === undefined || averageRating === null
+        ? undefined
+        : Number(averageRating).toFixed(1),
+    reviews: property.totalReviews ?? property.reviews?.length ?? property.reviews ?? 0,
+  };
+}
+
+function normalizePropertyCollection(data) {
+  const properties = Array.isArray(data) ? data : data?.data || [];
+  return properties.map(normalizeProperty);
+}
+
 function extractAccessToken(data) {
   return data.accessToken || data.access_token || data.token || data.jwt;
 }
@@ -218,7 +258,7 @@ export async function getCurrentUser() {
 
 export async function getProperties(filters = {}) {
   try {
-    return await request("/properties");
+    return normalizePropertyCollection(await searchProperties(filters));
   } catch {
     return mockProperties.filter((property) => {
       const matchesLocation =
@@ -287,17 +327,29 @@ export async function searchProperties(filters = {}) {
 
     return await request(path);
   } catch {
-    return getProperties(filters);
+    return mockProperties.filter((property) => {
+      const matchesLocation =
+        !filters.location ||
+        property.location
+          .toLowerCase()
+          .includes(filters.location.toLowerCase());
+
+      const matchesPrice = property.price <= Number(filters.maxPrice || 1000);
+      const matchesRating =
+        property.rating >= Number(filters.minRating || filters.rating || 0);
+
+      return matchesLocation && matchesPrice && matchesRating;
+    });
   }
 }
 
 export async function getPropertyById(id) {
   try {
-    return await request(`/properties/${id}`);
+    return normalizeProperty(await request(`/properties/${id}`));
   } catch {
-    return mockProperties.find(
+    return normalizeProperty(mockProperties.find(
       (property) => String(property.id) === String(id),
-    );
+    ));
   }
 }
 

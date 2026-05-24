@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import BookingForm from "../components/BookingForm.jsx";
 import { getPropertyById } from "../services/api.js";
 import styles from "./PropertyDetails.module.css";
 
@@ -12,6 +13,9 @@ function PropertyDetails() {
 
   useEffect(() => {
     async function loadProperty() {
+      setLoading(true);
+      setError("");
+
       try {
         const data = await getPropertyById(id);
         setProperty(data);
@@ -27,7 +31,7 @@ function PropertyDetails() {
 
   async function handleCopyLink() {
     await navigator.clipboard.writeText(window.location.href);
-    alert("Property link copied!");
+    alert("Property link copied.");
   }
 
   if (loading) {
@@ -45,7 +49,7 @@ function PropertyDetails() {
   return (
     <main className={styles.container}>
       <Link to="/" className={styles.backLink}>
-        ← Back to properties
+        Back to properties
       </Link>
 
       <section className={styles.hero}>
@@ -56,12 +60,12 @@ function PropertyDetails() {
         />
 
         <div className={styles.summaryCard}>
-          <span className={styles.status}>ACTIVE</span>
+          <span className={styles.status}>{property.status || "ACTIVE"}</span>
           <h1>{property.title}</h1>
-          <p className={styles.location}>📍 {property.location}</p>
+          <p className={styles.location}>{property.location}</p>
 
           <div className={styles.priceRow}>
-            <span className={styles.price}>€{property.price}</span>
+            <span className={styles.price}>${property.price}</span>
             <span className={styles.perNight}>/ night</span>
           </div>
 
@@ -107,6 +111,14 @@ function PropertyDetails() {
         ) : (
           <p>No amenities listed for this property.</p>
         )}
+      </section>
+
+      <section className={styles.bookingSection}>
+        <div>
+          <h2>Reserve this stay</h2>
+          <p>Choose dates and submit a booking with your signed-in account.</p>
+        </div>
+        <BookingForm property={property} />
       </section>
     </main>
   );

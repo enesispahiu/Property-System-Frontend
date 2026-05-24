@@ -8,9 +8,35 @@ import styles from './Home.module.css';
 function Home() {
   const [filters, setFilters] = useState({ location: '', maxPrice: '300', minRating: '0' });
   const [properties, setProperties] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    getProperties(filters).then(setProperties);
+    let isMounted = true;
+
+    setIsLoading(true);
+    setError('');
+
+    getProperties(filters)
+      .then((data) => {
+        if (isMounted) {
+          setProperties(data);
+        }
+      })
+      .catch((requestError) => {
+        if (isMounted) {
+          setError(requestError.message || 'Unable to load properties.');
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [filters]);
 
   function handleHeroSearch(search) {
@@ -32,7 +58,12 @@ function Home() {
           </p>
         </section>
         <div className="layout-grid">
-          <PropertyGrid properties={properties} />
+          {error ? <div className={styles.state}>{error}</div> : null}
+          {isLoading ? (
+            <div className={styles.state}>Loading properties...</div>
+          ) : (
+            <PropertyGrid properties={properties} />
+          )}
           <Filters filters={filters} onChange={setFilters} />
         </div>
       </main>
