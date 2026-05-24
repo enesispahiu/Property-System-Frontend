@@ -21,6 +21,17 @@ function Filters({ filters, onChange }) {
         />
       </label>
       <label>
+        Min price
+        <input
+          name="minPrice"
+          type="number"
+          min="0"
+          placeholder="No minimum"
+          value={filters.minPrice}
+          onChange={updateFilter}
+        />
+      </label>
+      <label>
         Max price: ${filters.maxPrice}
         <input
           name="maxPrice"

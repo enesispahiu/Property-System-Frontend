@@ -20,8 +20,24 @@
   line-height: 1.65;
 }
 
+.state {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #52525b;
+  font-weight: 700;
+  padding: 24px;
+  text-align: center;
+}
+
 @media (max-width: 760px) {
   .intro {
     grid-template-columns: 1fr;
   }
+}
+.homePage {
+  min-height: 100vh;
 }

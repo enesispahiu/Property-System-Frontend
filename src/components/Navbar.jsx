@@ -1,14 +1,37 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { isAuthenticated, logout, onAuthChange } from '../services/api.js';
+import {
+  getCurrentUser,
+  isAuthenticated,
+  logout,
+  onAuthChange,
+} from '../services/api.js';
 import styles from './Navbar.module.css';
 
 function Navbar() {
   const navigate = useNavigate();
   const [loggedIn, setLoggedIn] = useState(isAuthenticated);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    return onAuthChange(() => setLoggedIn(isAuthenticated()));
+    async function syncAuth() {
+      const authenticated = isAuthenticated();
+      setLoggedIn(authenticated);
+
+      if (!authenticated) {
+        setUser(null);
+        return;
+      }
+
+      try {
+        setUser(await getCurrentUser());
+      } catch {
+        setUser(null);
+      }
+    }
+
+    syncAuth();
+    return onAuthChange(syncAuth);
   }, []);
 
   function handleLogout() {
@@ -33,6 +56,14 @@ function Navbar() {
           >
             Dashboard
           </NavLink>
+          {user?.role === 'ADMIN' ? (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) => (isActive ? styles.active : '')}
+            >
+              Admin Panel
+            </NavLink>
+          ) : null}
         </div>
         <div className={styles.actions}>
           {loggedIn ? (

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { createBooking } from "../services/api.js";
 import styles from "./BookingForm.module.css";
 
@@ -47,6 +48,7 @@ function validateBooking(form) {
 }
 
 function BookingForm({ property }) {
+  const navigate = useNavigate();
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState("");
@@ -93,14 +95,13 @@ function BookingForm({ property }) {
         propertyId,
         startDate: form.startDate,
         endDate: form.endDate,
-        guests: Number(form.guests),
-        totalPrice,
       });
 
       setStatus(`Booking ${booking.status || "created"} successfully.`);
       setForm(initialForm);
+      navigate("/dashboard");
     } catch (error) {
-      setStatus(error.message || "Booking could not be created.");
+      setStatus(`Booking failed: ${error.message || "Booking could not be created."}`);
     } finally {
       setIsSubmitting(false);
     }

@@ -6,11 +6,50 @@ import { getProperties } from '../services/api.js';
 import styles from './Home.module.css';
 
 function Home() {
-  const [filters, setFilters] = useState({ location: '', maxPrice: '300', minRating: '0' });
+  const [filters, setFilters] = useState({
+    location: '',
+    minPrice: '',
+    maxPrice: '300',
+    minRating: '0',
+  });
   const [properties, setProperties] = useState([]);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    getProperties(filters).then(setProperties);
+    let isCurrent = true;
+
+    async function loadProperties() {
+      setIsLoading(true);
+      setError('');
+
+      try {
+        const data = await getProperties({
+          ...filters,
+          page: 1,
+          limit: 10,
+        });
+
+        if (isCurrent) {
+          setProperties(data);
+        }
+      } catch (requestError) {
+        if (isCurrent) {
+          setProperties([]);
+          setError(requestError.message || 'Unable to load properties.');
+        }
+      } finally {
+        if (isCurrent) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadProperties();
+
+    return () => {
+      isCurrent = false;
+    };
   }, [filters]);
 
   function handleHeroSearch(search) {
@@ -32,7 +71,13 @@ function Home() {
           </p>
         </section>
         <div className="layout-grid">
-          <PropertyGrid properties={properties} />
+          {error ? (
+            <div className={styles.state}>{error}</div>
+          ) : isLoading ? (
+            <div className={styles.state}>Loading properties...</div>
+          ) : (
+            <PropertyGrid properties={properties} />
+          )}
           <Filters filters={filters} onChange={setFilters} />
         </div>
       </main>
