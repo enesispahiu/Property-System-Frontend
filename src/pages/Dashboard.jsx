@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react";
-import { cancelBooking, getDashboardSummary } from "../services/api.js";
+import {
+  cancelBooking,
+  getCurrentUser,
+  getUserBookings,
+} from "../services/api.js";
 import styles from "./Dashboard.module.css";
 
 function formatDate(value) {
+  if (!value) {
+    return "-";
+  }
+
   return new Intl.DateTimeFormat("en", {
     month: "short",
     day: "numeric",
@@ -11,7 +19,8 @@ function formatDate(value) {
 }
 
 function Dashboard() {
-  const [summary, setSummary] = useState(null);
+  const [user, setUser] = useState(null);
+  const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -20,8 +29,9 @@ function Dashboard() {
     setError("");
 
     try {
-      const data = await getDashboardSummary();
-      setSummary(data);
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+      setBookings(currentUser?.id ? await getUserBookings(currentUser.id) : []);
     } catch (requestError) {
       setError(requestError.message || "Unable to load dashboard.");
     } finally {
@@ -50,10 +60,14 @@ function Dashboard() {
     return <main className={styles.state}>{error}</main>;
   }
 
-  const bookings = summary?.bookings || [];
   const cancelledBookings = bookings.filter(
     (booking) => booking.status === "CANCELLED",
   ).length;
+  const activeBookings = bookings.length - cancelledBookings;
+  const totalSpent = bookings.reduce(
+    (sum, booking) => sum + Number(booking.totalPrice || 0),
+    0,
+  );
 
   return (
     <main className={styles.page}>
@@ -62,19 +76,19 @@ function Dashboard() {
           <p className={styles.eyebrow}>Traveler dashboard</p>
           <h1>Your profile and bookings</h1>
           <p>
-            Signed in as <strong>{summary.user?.email}</strong>
-            {summary.user?.role ? ` (${summary.user.role})` : ""}
+            Signed in as <strong>{user?.email}</strong>
+            {user?.role ? ` (${user.role})` : ""}
           </p>
         </div>
         <div className={styles.tenantBadge}>
-          Tenant #{summary.user?.tenantId || "-"}
+          Tenant #{user?.tenantId || "-"}
         </div>
       </section>
 
       <section className={styles.stats}>
         <article>
           <span>Active bookings</span>
-          <strong>{summary.upcomingTrips}</strong>
+          <strong>{activeBookings}</strong>
         </article>
         <article>
           <span>Cancelled</span>
@@ -82,7 +96,7 @@ function Dashboard() {
         </article>
         <article>
           <span>Total spent</span>
-          <strong>${Number(summary.totalSpent || 0).toLocaleString()}</strong>
+          <strong>${totalSpent.toLocaleString()}</strong>
         </article>
       </section>
 
@@ -98,15 +112,18 @@ function Dashboard() {
         </div>
 
         {bookings.length === 0 ? (
-          <div className={styles.empty}>No bookings yet.</div>
+          <div className={styles.empty}>You do not have any bookings yet.</div>
         ) : (
           <div className={styles.bookings}>
             {bookings.map((booking) => (
               <article key={booking.id} className={styles.booking}>
                 <div>
                   <h3>{booking.property?.title || `Booking #${booking.id}`}</h3>
+                  {booking.property?.location ? (
+                    <p>{booking.property.location}</p>
+                  ) : null}
                   <p>
-                    Booking #{booking.id} · property #{booking.propertyId} ·{" "}
+                    Booking #{booking.id} - property #{booking.propertyId} -{" "}
                     {formatDate(booking.startDate)} -{" "}
                     {formatDate(booking.endDate)}
                   </p>
