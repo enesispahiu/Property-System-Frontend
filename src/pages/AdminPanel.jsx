@@ -12,6 +12,11 @@ import {
   getPropertyReviews,
   getUsers,
   generatePropertyDescription,
+  createTenant,
+  createTenantAdmin,
+  deleteTenant,
+  getTenants,
+  updateTenant,
   updateProperty,
   updateBookingStatus,
   updateUserRole,
@@ -23,6 +28,20 @@ const initialPropertyForm = {
   description: "",
   location: "",
   price: "",
+};
+
+const initialTenantForm = {
+  name: "",
+  slug: "",
+  domain: "",
+  logoUrl: "",
+  primaryColor: "#ff385c",
+};
+
+const initialTenantAdminForm = {
+  tenantId: "",
+  email: "",
+  password: "12345678",
 };
 
 function formatDate(value) {
@@ -43,8 +62,12 @@ function AdminPanel() {
   const [properties, setProperties] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [tenants, setTenants] = useState([]);
   const [selectedReviewPropertyId, setSelectedReviewPropertyId] = useState("");
   const [propertyForm, setPropertyForm] = useState(initialPropertyForm);
+  const [tenantForm, setTenantForm] = useState(initialTenantForm);
+  const [tenantAdminForm, setTenantAdminForm] = useState(initialTenantAdminForm);
+  const [editingTenantId, setEditingTenantId] = useState(null);
   const [editingPropertyId, setEditingPropertyId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
@@ -68,7 +91,14 @@ function AdminPanel() {
       const currentUser = nextUser || (await getCurrentUser());
       setUser(currentUser);
 
-      if (currentUser.role !== "ADMIN") {
+      if (currentUser.role === "SUPER_ADMIN") {
+        const tenantsData = await getTenants().catch(() => []);
+        setTenants(Array.isArray(tenantsData) ? tenantsData : []);
+        setIsLoading(false);
+        return;
+      }
+
+      if (currentUser.role !== "TENANT_ADMIN") {
         setIsLoading(false);
         return;
       }
@@ -126,6 +156,33 @@ function AdminPanel() {
     setPropertyForm((current) => ({ ...current, [name]: value }));
   }
 
+  function updateTenantField(event) {
+    const { name, value } = event.target;
+    setTenantForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function updateTenantAdminField(event) {
+    const { name, value } = event.target;
+    setTenantAdminForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function beginEditTenant(tenant) {
+    setEditingTenantId(tenant.id);
+    setTenantForm({
+      name: tenant.name || "",
+      slug: tenant.slug || "",
+      domain: tenant.domain || "",
+      logoUrl: tenant.logoUrl || "",
+      primaryColor: tenant.primaryColor || "",
+    });
+    setStatus("");
+  }
+
+  function resetTenantForm() {
+    setEditingTenantId(null);
+    setTenantForm(initialTenantForm);
+  }
+
   function beginEditProperty(property) {
     setEditingPropertyId(property.id);
     setPropertyForm({
@@ -144,8 +201,6 @@ function AdminPanel() {
       const payload = {
         ...propertyForm,
         price: Number(propertyForm.price),
-        tenantId: user.tenantId,
-        ownerId: user.id,
       };
 
       if (editingPropertyId) {
@@ -277,6 +332,63 @@ function AdminPanel() {
     }
   }
 
+  async function handleSaveTenant(event) {
+    event.preventDefault();
+    setStatus("");
+
+    try {
+      const payload = {
+        ...tenantForm,
+        slug: tenantForm.slug || undefined,
+        domain: tenantForm.domain || undefined,
+        logoUrl: tenantForm.logoUrl || undefined,
+        primaryColor: tenantForm.primaryColor || undefined,
+      };
+
+      if (editingTenantId) {
+        await updateTenant(editingTenantId, payload);
+        setStatus("Tenant updated.");
+      } else {
+        await createTenant(payload);
+        setStatus("Tenant created.");
+      }
+
+      resetTenantForm();
+      await loadAdminData(user);
+    } catch (requestError) {
+      setStatus(requestError.message || "Unable to save tenant.");
+    }
+  }
+
+  async function handleCreateTenantAdmin(event) {
+    event.preventDefault();
+    setStatus("");
+
+    try {
+      await createTenantAdmin(tenantAdminForm.tenantId, {
+        email: tenantAdminForm.email,
+        password: tenantAdminForm.password,
+      });
+      setTenantAdminForm(initialTenantAdminForm);
+      setStatus("Tenant admin created.");
+      await loadAdminData(user);
+    } catch (requestError) {
+      setStatus(requestError.message || "Unable to create tenant admin.");
+    }
+  }
+
+  async function handleDeleteTenant(id) {
+    setStatus("");
+
+    try {
+      await deleteTenant(id);
+      setStatus("Tenant deleted.");
+      await loadAdminData(user);
+    } catch (requestError) {
+      setStatus(requestError.message || "Unable to delete tenant.");
+    }
+  }
+
   if (isLoading) {
     return <main className={styles.state}>Loading admin panel...</main>;
   }
@@ -285,15 +397,152 @@ function AdminPanel() {
     return <main className={styles.state}>{error}</main>;
   }
 
-  if (user?.role !== "ADMIN") {
+  if (user?.role !== "SUPER_ADMIN" && user?.role !== "TENANT_ADMIN") {
     return <main className={styles.state}>Access denied.</main>;
+  }
+
+  if (user?.role === "SUPER_ADMIN") {
+    return (
+      <main className={styles.page}>
+        <section className={styles.heading}>
+          <p className={styles.eyebrow}>Platform</p>
+          <h1>Platform Admin Panel</h1>
+          <p>
+            Signed in as <strong>{user.email}</strong>. Manage tenants and tenant
+            admins across the SaaS platform.
+          </p>
+        </section>
+
+        {status ? <div className={styles.status}>{status}</div> : null}
+
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <h2>{editingTenantId ? "Edit Tenant" : "Create Tenant"}</h2>
+          </div>
+          <form className={styles.form} onSubmit={handleSaveTenant}>
+            <input
+              name="name"
+              placeholder="Tenant name"
+              value={tenantForm.name}
+              onChange={updateTenantField}
+              required
+            />
+            <input
+              name="slug"
+              placeholder="tenant-slug"
+              value={tenantForm.slug}
+              onChange={updateTenantField}
+            />
+            <input
+              name="domain"
+              placeholder="Domain"
+              value={tenantForm.domain}
+              onChange={updateTenantField}
+            />
+            <input
+              name="logoUrl"
+              placeholder="Logo URL"
+              value={tenantForm.logoUrl}
+              onChange={updateTenantField}
+            />
+            <input
+              name="primaryColor"
+              placeholder="#ff385c"
+              value={tenantForm.primaryColor}
+              onChange={updateTenantField}
+            />
+            <div className={styles.formActions}>
+              <button type="submit">
+                {editingTenantId ? "Update tenant" : "Create tenant"}
+              </button>
+              {editingTenantId ? (
+                <button type="button" onClick={resetTenantForm}>
+                  Cancel edit
+                </button>
+              ) : null}
+            </div>
+          </form>
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <h2>Tenant Admins</h2>
+          </div>
+          <form className={styles.form} onSubmit={handleCreateTenantAdmin}>
+            <select
+              name="tenantId"
+              value={tenantAdminForm.tenantId}
+              onChange={updateTenantAdminField}
+              required
+            >
+              <option value="">Select tenant</option>
+              {tenants.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>
+                  {tenant.name}
+                </option>
+              ))}
+            </select>
+            <input
+              name="email"
+              type="email"
+              placeholder="Tenant admin email"
+              value={tenantAdminForm.email}
+              onChange={updateTenantAdminField}
+              required
+            />
+            <input
+              name="password"
+              type="password"
+              minLength="8"
+              placeholder="Password"
+              value={tenantAdminForm.password}
+              onChange={updateTenantAdminField}
+              required
+            />
+            <button type="submit">Create tenant admin</button>
+          </form>
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <h2>Tenants</h2>
+            <button type="button" onClick={() => loadAdminData(user)}>
+              Refresh
+            </button>
+          </div>
+          {tenants.length === 0 ? (
+            <div className={styles.empty}>No tenants found.</div>
+          ) : (
+            <div className={styles.table}>
+              {tenants.map((tenant) => (
+                <article key={tenant.id} className={styles.row}>
+                  <div>
+                    <strong>#{tenant.id} {tenant.name}</strong>
+                    <span>
+                      {tenant.slug} - users {tenant._count?.users || 0} -
+                      properties {tenant._count?.properties || 0}
+                    </span>
+                  </div>
+                  <button type="button" onClick={() => beginEditTenant(tenant)}>
+                    Edit
+                  </button>
+                  <button type="button" onClick={() => handleDeleteTenant(tenant.id)}>
+                    Delete
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
+    );
   }
 
   return (
     <main className={styles.page}>
       <section className={styles.heading}>
-        <p className={styles.eyebrow}>Admin</p>
-        <h1>Admin Panel</h1>
+        <p className={styles.eyebrow}>Business Admin</p>
+        <h1>Business Admin Panel</h1>
         <p>
           Signed in as <strong>{user.email}</strong> for tenant #{user.tenantId}.
         </p>

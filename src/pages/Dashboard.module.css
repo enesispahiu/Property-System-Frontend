@@ -54,7 +54,7 @@
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 16px;
   margin-bottom: 22px;
 }
@@ -74,6 +74,7 @@
 }
 
 .stats span,
+.stats small,
 .panelHeader p,
 .booking p {
   color: #64748b;
@@ -81,11 +82,17 @@
 
 .stats strong {
   color: #111827;
-  font-size: 2.15rem;
+  font-size: clamp(1.35rem, 2.5vw, 2.15rem);
+  overflow-wrap: anywhere;
+}
+
+.stats small {
+  font-weight: 800;
 }
 
 .panel {
   padding: 22px;
+  margin-bottom: 22px;
 }
 
 .panelHeader,
@@ -108,7 +115,9 @@
 }
 
 .panelHeader button,
-.booking button {
+.booking button,
+.actions a,
+.quickActions a {
   min-height: 38px;
   border: 1px solid #dbe3ef;
   border-radius: 8px;
@@ -118,6 +127,36 @@
   font: inherit;
   font-weight: 850;
   cursor: pointer;
+}
+
+.actions a,
+.quickActions a {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.quickActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.status {
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  background: #fffbeb;
+  color: #92400e;
+  font-weight: 800;
 }
 
 .bookings {
@@ -169,7 +208,8 @@
     flex-direction: column;
   }
 
-  .stats {
+  .stats,
+  .grid {
     grid-template-columns: 1fr;
   }
 

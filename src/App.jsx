@@ -19,6 +19,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/platform" element={<AdminPanel />} />
       </Routes>
       <AiAssistantButton />
     </div>
