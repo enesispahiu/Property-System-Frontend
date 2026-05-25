@@ -28,12 +28,12 @@ function Navbar() {
           >
             Dashboard
           </NavLink>
-          {user?.role === 'ADMIN' ? (
+          {user?.role === 'SUPER_ADMIN' || user?.role === 'TENANT_ADMIN' ? (
             <NavLink
-              to="/admin"
+              to={user?.role === 'SUPER_ADMIN' ? '/platform' : '/admin'}
               className={({ isActive }) => (isActive ? styles.active : '')}
             >
-              Admin Panel
+              {user?.role === 'SUPER_ADMIN' ? 'Platform Admin' : 'Business Admin'}
             </NavLink>
           ) : null}
         </div>

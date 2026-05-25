@@ -436,10 +436,13 @@ export async function createProperty(payload) {
   return request("/properties", {
     method: "POST",
     body: JSON.stringify({
-      ...payload,
+      title: payload.title,
+      description: payload.description,
+      location: payload.location,
       price: Number(payload.price),
-      tenantId: Number(payload.tenantId),
-      ownerId: Number(payload.ownerId),
+      ...(payload.status ? { status: payload.status } : {}),
+      ...(payload.tenantId ? { tenantId: Number(payload.tenantId) } : {}),
+      ...(payload.ownerId ? { ownerId: Number(payload.ownerId) } : {}),
     }),
   });
 }
@@ -450,10 +453,6 @@ export async function updateProperty(id, payload) {
     body: JSON.stringify({
       ...payload,
       ...(payload.price !== undefined ? { price: Number(payload.price) } : {}),
-      ...(payload.tenantId !== undefined
-        ? { tenantId: Number(payload.tenantId) }
-        : {}),
-      ...(payload.ownerId !== undefined ? { ownerId: Number(payload.ownerId) } : {}),
     }),
   });
 }
@@ -492,6 +491,37 @@ export async function updateBookingStatus(id, status) {
 
 export async function getUsers() {
   return request("/users");
+}
+
+export async function getTenants() {
+  return request("/platform/tenants");
+}
+
+export async function createTenant(payload) {
+  return request("/platform/tenants", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateTenant(id, payload) {
+  return request(`/platform/tenants/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteTenant(id) {
+  return request(`/platform/tenants/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function createTenantAdmin(tenantId, payload) {
+  return request(`/platform/tenants/${tenantId}/admins`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function updateUserRole(id, roleId) {
