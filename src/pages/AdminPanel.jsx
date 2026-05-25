@@ -11,6 +11,7 @@ import {
   getProperties,
   getPropertyReviews,
   getUsers,
+  generatePropertyDescription,
   updateProperty,
   updateBookingStatus,
   updateUserRole,
@@ -46,6 +47,7 @@ function AdminPanel() {
   const [propertyForm, setPropertyForm] = useState(initialPropertyForm);
   const [editingPropertyId, setEditingPropertyId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
@@ -159,6 +161,35 @@ function AdminPanel() {
       await loadAdminData(user);
     } catch (requestError) {
       setStatus(requestError.message || "Unable to save property.");
+    }
+  }
+
+  async function handleGenerateDescription() {
+    setStatus("");
+
+    if (!propertyForm.title || !propertyForm.location) {
+      setStatus("Please enter title and location before generating description.");
+      return;
+    }
+
+    if (!propertyForm.price) {
+      setStatus("Please enter price before generating description.");
+      return;
+    }
+
+    setIsGeneratingDescription(true);
+
+    try {
+      const response = await generatePropertyDescription(propertyForm);
+      setPropertyForm((current) => ({
+        ...current,
+        description: response.result || current.description,
+      }));
+      setStatus("AI description generated.");
+    } catch {
+      setStatus("AI could not generate description. Please try again.");
+    } finally {
+      setIsGeneratingDescription(false);
     }
   }
 
@@ -352,6 +383,13 @@ function AdminPanel() {
             required
           />
           <div className={styles.formActions}>
+            <button
+              type="button"
+              onClick={handleGenerateDescription}
+              disabled={isGeneratingDescription}
+            >
+              {isGeneratingDescription ? "Generating..." : "Generate AI Description"}
+            </button>
             <button type="submit">
               {editingPropertyId ? "Update property" : "Create property"}
             </button>

@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react';
 import Filters from '../components/Filters.jsx';
 import HeroSearch from '../components/HeroSearch.jsx';
 import PropertyGrid from '../components/PropertyGrid.jsx';
-import { searchProperties } from '../services/api.js';
+import { getProperties, isAuthenticated, searchProperties } from '../services/api.js';
 import styles from './Home.module.css';
 
 function Home() {
   const [filters, setFilters] = useState({
     location: '',
     minPrice: '',
-    maxPrice: '300',
+    maxPrice: '1000',
     minRating: '0',
   });
   const [properties, setProperties] = useState([]);
@@ -24,11 +24,14 @@ function Home() {
       setError('');
 
       try {
-        const data = await searchProperties({
+        const query = {
           ...filters,
           page: 1,
           limit: 10,
-        });
+        };
+        const data = isAuthenticated()
+          ? await getProperties(query)
+          : await searchProperties(query);
 
         if (isCurrent) {
           setProperties(data);
