@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   cancelBooking,
   createProperty,
@@ -7,15 +7,18 @@ import {
   deleteReview,
   deleteUser,
   getBookings,
+  getAdminProperties,
   getCurrentUser,
-  getProperties,
   getPropertyReviews,
   getUsers,
   generatePropertyDescription,
+  reactivateProperty,
   createTenant,
   createTenantAdmin,
+  deactivateTenant,
   deleteTenant,
   getTenants,
+  reactivateTenant,
   updateTenant,
   updateProperty,
   updateBookingStatus,
@@ -66,20 +69,39 @@ function AdminPanel() {
   const [selectedReviewPropertyId, setSelectedReviewPropertyId] = useState("");
   const [propertyForm, setPropertyForm] = useState(initialPropertyForm);
   const [tenantForm, setTenantForm] = useState(initialTenantForm);
-  const [tenantAdminForm, setTenantAdminForm] = useState(initialTenantAdminForm);
+  const [tenantAdminForm, setTenantAdminForm] = useState(
+    initialTenantAdminForm,
+  );
   const [editingTenantId, setEditingTenantId] = useState(null);
   const [editingPropertyId, setEditingPropertyId] = useState(null);
+  const [showInactiveTenants, setShowInactiveTenants] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const tenantFormRef = useRef(null);
+  const propertyFormRef = useRef(null);
+
+  const editingTenant = useMemo(() => {
+    return tenants.find((tenant) => tenant.id === editingTenantId) || null;
+  }, [editingTenantId, tenants]);
+
+  const editingProperty = useMemo(() => {
+    return (
+      properties.find((property) => property.id === editingPropertyId) || null
+    );
+  }, [editingPropertyId, properties]);
 
   const roleOptions = useMemo(() => {
     return users
-      .map((entry) => ({ id: entry.roleId, name: entry.role?.name || `Role ${entry.roleId}` }))
+      .map((entry) => ({
+        id: entry.roleId,
+        name: entry.role?.name || `Role ${entry.roleId}`,
+      }))
       .filter(
-      (role, index, all) =>
-        role.id && all.findIndex((candidate) => candidate.id === role.id) === index,
+        (role, index, all) =>
+          role.id &&
+          all.findIndex((candidate) => candidate.id === role.id) === index,
       );
   }, [users]);
 
@@ -92,7 +114,9 @@ function AdminPanel() {
       setUser(currentUser);
 
       if (currentUser.role === "SUPER_ADMIN") {
-        const tenantsData = await getTenants().catch(() => []);
+        const tenantsData = await getTenants({
+          includeInactive: showInactiveTenants,
+        }).catch(() => []);
         setTenants(Array.isArray(tenantsData) ? tenantsData : []);
         setIsLoading(false);
         return;
@@ -105,7 +129,13 @@ function AdminPanel() {
 
       const [usersData, propertiesData, bookingsData] = await Promise.all([
         getUsers().catch(() => []),
-        getProperties({ page: 1, limit: 100 }).catch(() => []),
+        getAdminProperties().catch((requestError) => {
+          if (requestError.status === 403) {
+            setStatus("You can only manage properties from your organization.");
+          }
+
+          return [];
+        }),
         getBookings().catch(() => []),
       ]);
 
@@ -113,11 +143,16 @@ function AdminPanel() {
       setProperties(Array.isArray(propertiesData) ? propertiesData : []);
       setBookings(Array.isArray(bookingsData) ? bookingsData : []);
 
-      const firstPropertyId = selectedReviewPropertyId || propertiesData?.[0]?.id || "";
-      setSelectedReviewPropertyId(firstPropertyId ? String(firstPropertyId) : "");
+      const firstPropertyId =
+        selectedReviewPropertyId || propertiesData?.[0]?.id || "";
+      setSelectedReviewPropertyId(
+        firstPropertyId ? String(firstPropertyId) : "",
+      );
 
       if (firstPropertyId) {
-        const reviewData = await getPropertyReviews(firstPropertyId).catch(() => []);
+        const reviewData = await getPropertyReviews(firstPropertyId).catch(
+          () => [],
+        );
         setReviews(Array.isArray(reviewData) ? reviewData : []);
       } else {
         setReviews([]);
@@ -131,7 +166,7 @@ function AdminPanel() {
 
   useEffect(() => {
     loadAdminData();
-  }, []);
+  }, [showInactiveTenants]);
 
   async function loadReviews(propertyId) {
     setSelectedReviewPropertyId(propertyId);
@@ -175,12 +210,23 @@ function AdminPanel() {
       logoUrl: tenant.logoUrl || "",
       primaryColor: tenant.primaryColor || "",
     });
-    setStatus("");
+    setStatus(`Editing tenant #${tenant.id}: ${tenant.name}`);
+    window.setTimeout(() => {
+      tenantFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
   }
 
   function resetTenantForm() {
     setEditingTenantId(null);
     setTenantForm(initialTenantForm);
+  }
+
+  function resetPropertyForm() {
+    setEditingPropertyId(null);
+    setPropertyForm(initialPropertyForm);
   }
 
   function beginEditProperty(property) {
@@ -191,6 +237,13 @@ function AdminPanel() {
       location: property.location || "",
       price: String(property.price || ""),
     });
+    setStatus(`Editing property #${property.id}: ${property.title}`);
+    window.setTimeout(() => {
+      propertyFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
   }
 
   async function handleSaveProperty(event) {
@@ -205,15 +258,15 @@ function AdminPanel() {
 
       if (editingPropertyId) {
         await updateProperty(editingPropertyId, payload);
-        setStatus("Property updated.");
+        await loadAdminData(user);
+        resetPropertyForm();
+        setStatus("Property updated successfully.");
       } else {
         await createProperty(payload);
+        await loadAdminData(user);
+        resetPropertyForm();
         setStatus("Property created.");
       }
-
-      setPropertyForm(initialPropertyForm);
-      setEditingPropertyId(null);
-      await loadAdminData(user);
     } catch (requestError) {
       setStatus(requestError.message || "Unable to save property.");
     }
@@ -223,7 +276,9 @@ function AdminPanel() {
     setStatus("");
 
     if (!propertyForm.title || !propertyForm.location) {
-      setStatus("Please enter title and location before generating description.");
+      setStatus(
+        "Please enter title and location before generating description.",
+      );
       return;
     }
 
@@ -253,10 +308,25 @@ function AdminPanel() {
 
     try {
       await deleteProperty(id);
-      setStatus("Property deleted.");
+      setStatus("Property removed from public listings.");
       await loadAdminData(user);
     } catch (requestError) {
-      setStatus(requestError.message || "Unable to delete property.");
+      setStatus(
+        requestError.message ||
+          "Unable to deactivate property. You can only manage properties from your organization.",
+      );
+    }
+  }
+
+  async function handleReactivateProperty(id) {
+    setStatus("");
+
+    try {
+      await reactivateProperty(id);
+      setStatus("Property reactivated and visible in public listings.");
+      await loadAdminData(user);
+    } catch (requestError) {
+      setStatus(requestError.message || "Unable to reactivate property.");
     }
   }
 
@@ -347,14 +417,15 @@ function AdminPanel() {
 
       if (editingTenantId) {
         await updateTenant(editingTenantId, payload);
-        setStatus("Tenant updated.");
+        await loadAdminData(user);
+        resetTenantForm();
+        setStatus("Tenant updated successfully.");
       } else {
         await createTenant(payload);
+        await loadAdminData(user);
+        resetTenantForm();
         setStatus("Tenant created.");
       }
-
-      resetTenantForm();
-      await loadAdminData(user);
     } catch (requestError) {
       setStatus(requestError.message || "Unable to save tenant.");
     }
@@ -389,6 +460,34 @@ function AdminPanel() {
     }
   }
 
+  async function handleDeactivateTenant(id) {
+    setStatus("");
+
+    try {
+      await deactivateTenant(id);
+      setStatus(
+        "Tenant deactivated. Its properties are hidden from public Explore.",
+      );
+      await loadAdminData(user);
+    } catch (requestError) {
+      setStatus(requestError.message || "Unable to deactivate tenant.");
+    }
+  }
+
+  async function handleReactivateTenant(id) {
+    setStatus("");
+
+    try {
+      await reactivateTenant(id);
+      setStatus(
+        "Tenant reactivated. Active properties can appear in public Explore.",
+      );
+      await loadAdminData(user);
+    } catch (requestError) {
+      setStatus(requestError.message || "Unable to reactivate tenant.");
+    }
+  }
+
   if (isLoading) {
     return <main className={styles.state}>Loading admin panel...</main>;
   }
@@ -408,17 +507,28 @@ function AdminPanel() {
           <p className={styles.eyebrow}>Platform</p>
           <h1>Platform Admin Panel</h1>
           <p>
-            Signed in as <strong>{user.email}</strong>. Manage tenants and tenant
-            admins across the SaaS platform.
+            Signed in as <strong>{user.email}</strong>. Manage tenants and
+            tenant admins across the SaaS platform.
           </p>
         </section>
 
         {status ? <div className={styles.status}>{status}</div> : null}
 
-        <section className={styles.panel}>
-          <div className={styles.panelHeader}>
+        <section
+          className={`${styles.panel} ${editingTenantId ? styles.editMode : ""}`}
+          ref={tenantFormRef}
+        >
+          <div className={`${styles.panelHeader} ${styles.formHeader}`}>
             <h2>{editingTenantId ? "Edit Tenant" : "Create Tenant"}</h2>
+            {editingTenantId ? (
+              <span className={styles.editBadge}>Edit mode</span>
+            ) : null}
           </div>
+          {editingTenantId ? (
+            <div className={styles.editBanner}>
+              Editing tenant: {editingTenant?.name || tenantForm.name}
+            </div>
+          ) : null}
           <form className={styles.form} onSubmit={handleSaveTenant}>
             <input
               name="name"
@@ -453,11 +563,15 @@ function AdminPanel() {
             />
             <div className={styles.formActions}>
               <button type="submit">
-                {editingTenantId ? "Update tenant" : "Create tenant"}
+                {editingTenantId ? "Save Tenant Changes" : "Create Tenant"}
               </button>
               {editingTenantId ? (
-                <button type="button" onClick={resetTenantForm}>
-                  Cancel edit
+                <button
+                  className={styles.cancelButton}
+                  type="button"
+                  onClick={resetTenantForm}
+                >
+                  Cancel Edit
                 </button>
               ) : null}
             </div>
@@ -506,28 +620,68 @@ function AdminPanel() {
         <section className={styles.panel}>
           <div className={styles.panelHeader}>
             <h2>Tenants</h2>
-            <button type="button" onClick={() => loadAdminData(user)}>
-              Refresh
-            </button>
+            <div className={styles.panelActions}>
+              <label className={styles.toggle}>
+                <input
+                  type="checkbox"
+                  checked={showInactiveTenants}
+                  onChange={(event) =>
+                    setShowInactiveTenants(event.target.checked)
+                  }
+                />
+                Show inactive tenants
+              </label>
+              <button type="button" onClick={() => loadAdminData(user)}>
+                Refresh
+              </button>
+            </div>
           </div>
           {tenants.length === 0 ? (
             <div className={styles.empty}>No tenants found.</div>
           ) : (
             <div className={styles.table}>
               {tenants.map((tenant) => (
-                <article key={tenant.id} className={styles.row}>
+                <article
+                  key={tenant.id}
+                  className={`${styles.row} ${
+                    editingTenantId === tenant.id ? styles.editedRow : ""
+                  }`}
+                >
                   <div>
-                    <strong>#{tenant.id} {tenant.name}</strong>
+                    <strong>
+                      #{tenant.id} {tenant.name}
+                    </strong>
                     <span>
                       {tenant.slug} - users {tenant._count?.users || 0} -
                       properties {tenant._count?.properties || 0}
+                    </span>
+                    <span className={styles.statusBadge}>
+                      {tenant.status || "ACTIVE"}
                     </span>
                   </div>
                   <button type="button" onClick={() => beginEditTenant(tenant)}>
                     Edit
                   </button>
-                  <button type="button" onClick={() => handleDeleteTenant(tenant.id)}>
-                    Delete
+                  {(tenant.status || "ACTIVE") === "INACTIVE" ? (
+                    <button
+                      type="button"
+                      onClick={() => handleReactivateTenant(tenant.id)}
+                    >
+                      Reactivate
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleDeactivateTenant(tenant.id)}
+                    >
+                      Deactivate
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteTenant(tenant.id)}
+                  >
+                    Delete permanently
                   </button>
                 </article>
               ))}
@@ -544,7 +698,8 @@ function AdminPanel() {
         <p className={styles.eyebrow}>Business Admin</p>
         <h1>Business Admin Panel</h1>
         <p>
-          Signed in as <strong>{user.email}</strong> for tenant #{user.tenantId}.
+          Signed in as <strong>{user.email}</strong> for tenant #{user.tenantId}
+          .
         </p>
       </section>
 
@@ -565,14 +720,18 @@ function AdminPanel() {
             {users.map((entry) => (
               <article key={entry.id} className={styles.row}>
                 <div>
-                  <strong>#{entry.id} {entry.email}</strong>
+                  <strong>
+                    #{entry.id} {entry.email}
+                  </strong>
                   <span>
                     {entry.role?.name || "No role"} - tenant #{entry.tenantId}
                   </span>
                 </div>
                 <select
                   value={entry.roleId}
-                  onChange={(event) => handleUpdateRole(entry.id, event.target.value)}
+                  onChange={(event) =>
+                    handleUpdateRole(entry.id, event.target.value)
+                  }
                   disabled={entry.id === user.id}
                 >
                   {roleOptions.map((role) => (
@@ -594,10 +753,21 @@ function AdminPanel() {
         )}
       </section>
 
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <h2>Manage Properties</h2>
+      <section
+        className={`${styles.panel} ${editingPropertyId ? styles.editMode : ""}`}
+        ref={propertyFormRef}
+      >
+        <div className={`${styles.panelHeader} ${styles.formHeader}`}>
+          <h2>{editingPropertyId ? "Edit Property" : "Add Property"}</h2>
+          {editingPropertyId ? (
+            <span className={styles.editBadge}>Edit mode</span>
+          ) : null}
         </div>
+        {editingPropertyId ? (
+          <div className={styles.editBanner}>
+            Editing property: {editingProperty?.title || propertyForm.title}
+          </div>
+        ) : null}
 
         <form className={styles.form} onSubmit={handleSaveProperty}>
           <input
@@ -637,20 +807,22 @@ function AdminPanel() {
               onClick={handleGenerateDescription}
               disabled={isGeneratingDescription}
             >
-              {isGeneratingDescription ? "Generating..." : "Generate AI Description"}
+              {isGeneratingDescription
+                ? "Generating..."
+                : "Generate AI Description"}
             </button>
             <button type="submit">
-              {editingPropertyId ? "Update property" : "Create property"}
+              {editingPropertyId
+                ? "Save Property Changes"
+                : "Create Property"}
             </button>
             {editingPropertyId ? (
               <button
+                className={styles.cancelButton}
                 type="button"
-                onClick={() => {
-                  setEditingPropertyId(null);
-                  setPropertyForm(initialPropertyForm);
-                }}
+                onClick={resetPropertyForm}
               >
-                Cancel edit
+                Cancel Edit
               </button>
             ) : null}
           </div>
@@ -661,19 +833,45 @@ function AdminPanel() {
         ) : (
           <div className={styles.table}>
             {properties.map((property) => (
-              <article key={property.id} className={styles.row}>
+              <article
+                key={property.id}
+                className={`${styles.row} ${
+                  editingPropertyId === property.id ? styles.editedRow : ""
+                }`}
+              >
                 <div>
-                  <strong>#{property.id} {property.title}</strong>
+                  <strong>
+                    #{property.id} {property.title}
+                  </strong>
                   <span>
-                    {property.location} - ${property.price} - tenant #{property.tenantId} - owner #{property.ownerId}
+                    {property.location} - ${property.price} - tenant #
+                    {property.tenantId} - owner #{property.ownerId}
+                  </span>
+                  <span className={styles.statusBadge}>
+                    {property.status || "ACTIVE"}
                   </span>
                 </div>
-                <button type="button" onClick={() => beginEditProperty(property)}>
+                <button
+                  type="button"
+                  onClick={() => beginEditProperty(property)}
+                >
                   Edit
                 </button>
-                <button type="button" onClick={() => handleDeleteProperty(property.id)}>
-                  Delete
-                </button>
+                {(property.status || "ACTIVE") === "INACTIVE" ? (
+                  <button
+                    type="button"
+                    onClick={() => handleReactivateProperty(property.id)}
+                  >
+                    Reactivate
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteProperty(property.id)}
+                  >
+                    Remove from listings
+                  </button>
+                )}
               </article>
             ))}
           </div>
@@ -694,10 +892,12 @@ function AdminPanel() {
                 <div>
                   <strong>Booking #{booking.id}</strong>
                   <span>
-                    {booking.property?.title || `property #${booking.propertyId}`} -{" "}
-                    {booking.user?.email || `user #${booking.userId}`} -{" "}
-                    {formatDate(booking.startDate)} to {formatDate(booking.endDate)}
-                    {" "}- created {formatDate(booking.createdAt)}
+                    {booking.property?.title ||
+                      `property #${booking.propertyId}`}{" "}
+                    - {booking.user?.email || `user #${booking.userId}`} -{" "}
+                    {formatDate(booking.startDate)} to{" "}
+                    {formatDate(booking.endDate)} - created{" "}
+                    {formatDate(booking.createdAt)}
                   </span>
                 </div>
                 <select
@@ -711,11 +911,17 @@ function AdminPanel() {
                   <option value="CANCELLED">CANCELLED</option>
                 </select>
                 {booking.status !== "CANCELLED" ? (
-                  <button type="button" onClick={() => handleCancelBooking(booking.id)}>
+                  <button
+                    type="button"
+                    onClick={() => handleCancelBooking(booking.id)}
+                  >
                     Cancel
                   </button>
                 ) : null}
-                <button type="button" onClick={() => handleDeleteBooking(booking.id)}>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteBooking(booking.id)}
+                >
                   Delete
                 </button>
               </article>
@@ -754,11 +960,14 @@ function AdminPanel() {
                     {review.user?.email || `user #${review.userId}`}
                   </strong>
                   <span>
-                    {review.property?.title || `property #${review.propertyId}`} -{" "}
-                    {formatDate(review.createdAt)} - {review.comment}
+                    {review.property?.title || `property #${review.propertyId}`}{" "}
+                    - {formatDate(review.createdAt)} - {review.comment}
                   </span>
                 </div>
-                <button type="button" onClick={() => handleDeleteReview(review.id)}>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteReview(review.id)}
+                >
                   Delete
                 </button>
               </article>

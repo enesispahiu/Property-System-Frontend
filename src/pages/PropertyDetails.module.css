@@ -221,7 +221,9 @@
     grid-template-columns: 1fr;
   }
 }
-.shareButton {
+.shareButton,
+.saveButton,
+.savedButton {
   width: 100%;
   margin-top: 22px;
   border: none;
@@ -239,4 +241,30 @@
 .shareButton:hover {
   background: #2563eb;
   transform: translateY(-2px);
+}
+
+.saveButton,
+.savedButton {
+  margin-top: 10px;
+  border: 1px solid #dbe3ef;
+  background: #ffffff;
+  color: #111827;
+}
+
+.saveButton:hover,
+.savedButton:hover {
+  background: #f8fafc;
+  transform: translateY(-2px);
+}
+
+.savedButton {
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.favoriteStatus {
+  margin: 10px 0 0;
+  color: #0f766e;
+  font-weight: 800;
 }

@@ -8,7 +8,11 @@ function PropertyCard({ property }) {
   }
 
   const image =
-    property.image || property.images?.[0]?.url || propertyImages.fallback;
+    property.imageUrl ||
+    property.images?.[0]?.url ||
+    property.images?.[0]?.imageUrl ||
+    property.image ||
+    propertyImages.fallback;
   const rating = property.averageRating || property.rating || "4.8";
   const price = property.price ? `$${property.price}` : "Price on request";
   const location = property.location || "Location not specified";

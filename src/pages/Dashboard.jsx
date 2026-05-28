@@ -2,13 +2,16 @@ import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import {
   cancelBooking,
+  getAdminProperties,
   getBookings,
   getCurrentUser,
+  getMyFavorites,
   getProperties,
   getPropertyReviews,
   getTenants,
   getUsers,
   getUserBookings,
+  payBooking,
 } from "../services/api.js";
 import styles from "./Dashboard.module.css";
 
@@ -42,37 +45,82 @@ function EmptyState({ children }) {
   return <div className={styles.empty}>{children}</div>;
 }
 
-function BookingList({ bookings, onCancel, compact = false }) {
+const paymentMethods = ["CARD", "CASH", "BANK_TRANSFER"];
+
+function BookingList({
+  bookings,
+  onCancel,
+  onPay,
+  selectedMethods = {},
+  onMethodChange,
+  payingBookingId,
+  compact = false,
+}) {
   if (!bookings.length) {
     return <EmptyState>No bookings found.</EmptyState>;
   }
 
   return (
     <div className={styles.bookings}>
-      {bookings.map((booking) => (
-        <article key={booking.id} className={styles.booking}>
-          <div>
-            <h3>{booking.property?.title || `Booking #${booking.id}`}</h3>
-            {booking.property?.location ? <p>{booking.property.location}</p> : null}
-            <p>
-              Booking #{booking.id} - property #{booking.propertyId} -{" "}
-              {booking.user?.email ? `${booking.user.email} - ` : ""}
-              {formatDate(booking.startDate)} to {formatDate(booking.endDate)}
-            </p>
-          </div>
+      {bookings.map((booking) => {
+        const paymentStatus = booking.paymentStatus || "UNPAID";
+        const canPay =
+          !compact &&
+          onPay &&
+          booking.status === "PENDING" &&
+          paymentStatus !== "PAID";
 
-          <div className={styles.bookingMeta}>
-            <strong>{money(booking.totalPrice)}</strong>
-            <span>{booking.status || "PENDING"}</span>
-          </div>
+        return (
+          <article key={booking.id} className={styles.booking}>
+            <div>
+              <h3>{booking.property?.title || `Booking #${booking.id}`}</h3>
+              {booking.property?.location ? <p>{booking.property.location}</p> : null}
+              <p>
+                Booking #{booking.id} - property #{booking.propertyId} -{" "}
+                {booking.user?.email ? `${booking.user.email} - ` : ""}
+                {formatDate(booking.startDate)} to {formatDate(booking.endDate)}
+              </p>
+            </div>
 
-          {!compact && onCancel && booking.status !== "CANCELLED" ? (
-            <button type="button" onClick={() => onCancel(booking.id)}>
-              Cancel
-            </button>
-          ) : null}
-        </article>
-      ))}
+            <div className={styles.bookingMeta}>
+              <strong>{money(booking.totalPrice)}</strong>
+              <span>{booking.status || "PENDING"}</span>
+              <span>{paymentStatus}</span>
+              {booking.paymentMethod ? <small>{booking.paymentMethod}</small> : null}
+            </div>
+
+            {canPay ? (
+              <div className={styles.paymentControls}>
+                <select
+                  value={selectedMethods[booking.id] || "CARD"}
+                  onChange={(event) =>
+                    onMethodChange?.(booking.id, event.target.value)
+                  }
+                >
+                  {paymentMethods.map((method) => (
+                    <option key={method} value={method}>
+                      {method}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => onPay(booking.id)}
+                  disabled={payingBookingId === booking.id}
+                >
+                  {payingBookingId === booking.id ? "Paying..." : "Pay"}
+                </button>
+              </div>
+            ) : null}
+
+            {!compact && onCancel && booking.status !== "CANCELLED" ? (
+              <button type="button" onClick={() => onCancel(booking.id)}>
+                Cancel
+              </button>
+            ) : null}
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -103,12 +151,32 @@ function ReviewList({ reviews }) {
   );
 }
 
-function UserDashboard({ user, bookings, reviews, onRefresh, onCancel }) {
-  const cancelledBookings = bookings.filter(
+function UserDashboard({
+  user,
+  bookings,
+  reviews,
+  favorites,
+  paymentMessage,
+  selectedMethods,
+  payingBookingId,
+  onRefresh,
+  onCancel,
+  onPay,
+  onMethodChange,
+}) {
+  const confirmedBookings = bookings.filter(
+    (booking) => booking.status === "CONFIRMED",
+  );
+  const pendingBookings = bookings.filter(
+    (booking) => booking.status === "PENDING",
+  );
+  const cancelledBookingsList = bookings.filter(
     (booking) => booking.status === "CANCELLED",
-  ).length;
-  const activeBookings = bookings.length - cancelledBookings;
-  const totalSpent = bookings.reduce(
+  );
+  const paidConfirmedBookings = confirmedBookings.filter(
+    (booking) => booking.paymentStatus === "PAID",
+  );
+  const totalSpent = paidConfirmedBookings.reduce(
     (sum, booking) => sum + Number(booking.totalPrice || 0),
     0,
   );
@@ -127,28 +195,67 @@ function UserDashboard({ user, bookings, reviews, onRefresh, onCancel }) {
       </section>
 
       <section className={styles.stats}>
-        <StatCard label="My active bookings" value={activeBookings} />
-        <StatCard label="My cancelled bookings" value={cancelledBookings} />
+        <StatCard label="Confirmed bookings" value={confirmedBookings.length} />
+        <StatCard label="Pending reservations" value={pendingBookings.length} />
+        <StatCard label="Cancelled bookings" value={cancelledBookingsList.length} />
         <StatCard label="Total spent" value={money(totalSpent)} />
+        <StatCard label="Saved properties" value={favorites.length} />
         <StatCard label="My reviews" value={reviews.length} />
+      </section>
+
+      {paymentMessage ? <div className={styles.status}>{paymentMessage}</div> : null}
+
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <h2>My Favourites</h2>
+            <p>{favorites.length} saved properties</p>
+          </div>
+          <Link to="/my-favourites">View all favourites</Link>
+        </div>
       </section>
 
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
-            <h2>My bookings</h2>
-            <p>{bookings.length} booking records</p>
+            <h2>Confirmed bookings</h2>
+            <p>Paid and confirmed stays</p>
           </div>
           <button type="button" onClick={onRefresh}>
             Refresh
           </button>
         </div>
 
-        {bookings.length === 0 ? (
-          <EmptyState>No bookings yet.</EmptyState>
-        ) : (
-          <BookingList bookings={bookings} onCancel={onCancel} />
-        )}
+        <BookingList bookings={confirmedBookings} onCancel={onCancel} />
+      </section>
+
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <h2>Pending reservations</h2>
+            <p>Unpaid reservations are not counted in total spent</p>
+          </div>
+        </div>
+
+        <BookingList
+          bookings={pendingBookings}
+          onCancel={onCancel}
+          onPay={onPay}
+          selectedMethods={selectedMethods}
+          onMethodChange={onMethodChange}
+          payingBookingId={payingBookingId}
+        />
+      </section>
+
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <h2>Booking history</h2>
+            <p>Cancelled bookings are kept for history</p>
+          </div>
+        </div>
+
+        <BookingList bookings={cancelledBookingsList} compact />
       </section>
 
       <section className={styles.panel}>
@@ -182,7 +289,10 @@ function TenantAdminDashboard({
       (booking) => booking.status === "PENDING",
     ).length;
     const totalIncome = bookings
-      .filter((booking) => booking.status !== "CANCELLED")
+      .filter(
+        (booking) =>
+          booking.status === "CONFIRMED" && booking.paymentStatus === "PAID",
+      )
       .reduce((sum, booking) => sum + Number(booking.totalPrice || 0), 0);
     const averageRating =
       reviews.length > 0
@@ -367,6 +477,7 @@ function SuperAdminDashboard({
 function Dashboard() {
   const [user, setUser] = useState(null);
   const [bookings, setBookings] = useState([]);
+  const [favorites, setFavorites] = useState([]);
   const [properties, setProperties] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [tenants, setTenants] = useState([]);
@@ -374,6 +485,9 @@ function Dashboard() {
   const [dataUnavailable, setDataUnavailable] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [paymentMessage, setPaymentMessage] = useState("");
+  const [selectedMethods, setSelectedMethods] = useState({});
+  const [payingBookingId, setPayingBookingId] = useState(null);
 
   async function loadReviewsForProperties(propertyList, currentUser) {
     const reviewGroups = await Promise.all(
@@ -407,6 +521,7 @@ function Dashboard() {
   async function loadDashboard() {
     setIsLoading(true);
     setError("");
+    setPaymentMessage("");
     setDataUnavailable(false);
 
     try {
@@ -419,7 +534,7 @@ function Dashboard() {
             setDataUnavailable(true);
             return [];
           }),
-          getProperties({ page: 1, limit: 500 }).catch(() => {
+          getAdminProperties().catch(() => {
             setDataUnavailable(true);
             return [];
           }),
@@ -433,6 +548,7 @@ function Dashboard() {
         setTenants(Array.isArray(tenantData) ? tenantData : []);
         setProperties(Array.isArray(propertyData) ? propertyData : []);
         setBookings(Array.isArray(bookingData) ? bookingData : []);
+        setFavorites([]);
         setUsers(Array.isArray(userData) ? userData : []);
         setReviews([]);
         return;
@@ -440,22 +556,27 @@ function Dashboard() {
 
       if (currentUser.role === "TENANT_ADMIN") {
         const [propertyData, bookingData] = await Promise.all([
-          getProperties({ page: 1, limit: 500 }).catch(() => []),
+          getAdminProperties().catch(() => []),
           getBookings().catch(() => []),
         ]);
         const reviewData = await loadReviewsForProperties(propertyData, currentUser);
 
         setProperties(Array.isArray(propertyData) ? propertyData : []);
         setBookings(Array.isArray(bookingData) ? bookingData : []);
+        setFavorites([]);
         setReviews(reviewData);
         return;
       }
 
-      const bookingData = currentUser?.id ? await getUserBookings(currentUser.id) : [];
+      const [bookingData, favoriteData] = await Promise.all([
+        currentUser?.id ? getUserBookings(currentUser.id) : Promise.resolve([]),
+        getMyFavorites().catch(() => []),
+      ]);
       const propertyData = await getProperties({ page: 1, limit: 500 }).catch(() => []);
       const reviewData = await loadReviewsForProperties(propertyData, currentUser);
 
       setBookings(Array.isArray(bookingData) ? bookingData : []);
+      setFavorites(Array.isArray(favoriteData) ? favoriteData : []);
       setProperties(Array.isArray(propertyData) ? propertyData : []);
       setReviews(reviewData);
     } catch (requestError) {
@@ -475,6 +596,26 @@ function Dashboard() {
       await loadDashboard();
     } catch (requestError) {
       setError(requestError.message || "Unable to cancel booking.");
+    }
+  }
+
+  function handleMethodChange(bookingId, method) {
+    setSelectedMethods((current) => ({ ...current, [bookingId]: method }));
+  }
+
+  async function handlePay(bookingId) {
+    setPayingBookingId(bookingId);
+    setError("");
+    setPaymentMessage("");
+
+    try {
+      await payBooking(bookingId, selectedMethods[bookingId] || "CARD");
+      await loadDashboard();
+      setPaymentMessage("Payment completed.");
+    } catch (requestError) {
+      setError(requestError.message || "Unable to complete payment.");
+    } finally {
+      setPayingBookingId(null);
     }
   }
 
@@ -521,8 +662,14 @@ function Dashboard() {
       user={user}
       bookings={bookings}
       reviews={reviews}
+      favorites={favorites}
+      paymentMessage={paymentMessage}
+      selectedMethods={selectedMethods}
+      payingBookingId={payingBookingId}
       onRefresh={loadDashboard}
       onCancel={handleCancel}
+      onPay={handlePay}
+      onMethodChange={handleMethodChange}
     />
   );
 }

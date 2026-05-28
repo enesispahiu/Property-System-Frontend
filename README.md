@@ -34,6 +34,8 @@ Keep the real `.env` local and out of commits.
 
 The frontend calls the backend endpoints in `src/services/api.js`, including auth, public search, property details, bookings, and reviews. Auth state is shared through `src/context/AuthContext.jsx`.
 
+The AI assistant UI calls the backend AI endpoint. It depends on the backend running and the backend being able to reach a local Ollama server, for example with `OLLAMA_BASE_URL=http://localhost:11434` and the `llama3.2` model pulled locally.
+
 ## Build
 
 ```bash
