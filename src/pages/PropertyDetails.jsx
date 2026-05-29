@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import BookingForm from "../components/BookingForm.jsx";
 import { propertyImages } from "../assets/propertyImages.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import {
   addFavorite,
   createReview,
@@ -17,6 +18,7 @@ import styles from "./PropertyDetails.module.css";
 function PropertyDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [property, setProperty] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -35,11 +37,12 @@ function PropertyDetails() {
       setError("");
 
       try {
+        const shouldLoadFavorites = isAuthenticated() && user?.role === "USER";
         const [propertyData, reviewData, averageData, favoriteData] = await Promise.all([
           getPropertyById(id),
           getPropertyReviews(id).catch(() => []),
           getPropertyAverageRating(id).catch(() => null),
-          isAuthenticated() ? getMyFavorites().catch(() => []) : Promise.resolve([]),
+          shouldLoadFavorites ? getMyFavorites().catch(() => []) : Promise.resolve([]),
         ]);
 
         if (!propertyData) {
@@ -64,7 +67,7 @@ function PropertyDetails() {
     }
 
     loadProperty();
-  }, [id]);
+  }, [id, user?.role]);
 
   async function handleCopyLink() {
     await navigator.clipboard.writeText(window.location.href);
@@ -74,6 +77,11 @@ function PropertyDetails() {
   async function handleFavoriteToggle() {
     if (!isAuthenticated()) {
       navigate("/login");
+      return;
+    }
+
+    if (user?.role !== "USER") {
+      setFavoriteStatus("Favorites are available only for customer accounts.");
       return;
     }
 
@@ -173,6 +181,11 @@ function PropertyDetails() {
           pageReviews.length
         ).toFixed(1)
       : "No ratings");
+  const role = user?.role;
+  const canUseCustomerActions = role === "USER";
+  const isAdminPreview = role === "TENANT_ADMIN" || role === "SUPER_ADMIN";
+  const canManageProperty =
+    role === "TENANT_ADMIN" && String(property.tenantId) === String(user?.tenantId);
 
   return (
     <main className={styles.container}>
@@ -219,16 +232,35 @@ function PropertyDetails() {
           <button className={styles.shareButton} onClick={handleCopyLink}>
             Share property
           </button>
-          <button
-            className={isSaved ? styles.savedButton : styles.saveButton}
-            onClick={handleFavoriteToggle}
-            disabled={isSaving}
-            type="button"
-          >
-            {isSaving ? "Saving..." : isSaved ? "Saved" : "Save"}
-          </button>
-          {favoriteStatus ? (
-            <p className={styles.favoriteStatus}>{favoriteStatus}</p>
+          {canUseCustomerActions ? (
+            <>
+              <button
+                className={isSaved ? styles.savedButton : styles.saveButton}
+                onClick={handleFavoriteToggle}
+                disabled={isSaving}
+                type="button"
+              >
+                {isSaving ? "Saving..." : isSaved ? "Saved" : "Save"}
+              </button>
+              {favoriteStatus ? (
+                <p className={styles.favoriteStatus}>{favoriteStatus}</p>
+              ) : null}
+            </>
+          ) : null}
+          {!user ? (
+            <Link to="/login" className={styles.saveButton}>
+              Login to save or book
+            </Link>
+          ) : null}
+          {isAdminPreview ? (
+            <p className={styles.previewNotice}>
+              Preview mode: customer booking and favorite actions are hidden.
+            </p>
+          ) : null}
+          {canManageProperty ? (
+            <Link to="/admin" className={styles.manageLink}>
+              Manage this listing
+            </Link>
           ) : null}
         </div>
       </section>
@@ -261,7 +293,16 @@ function PropertyDetails() {
 
       <section className={styles.section}>
         <h2>Reserve this stay</h2>
-        <BookingForm property={property} />
+        {canUseCustomerActions ? (
+          <BookingForm property={property} />
+        ) : !user ? (
+          <p>
+            Please <Link to="/login">login</Link> with a customer account to reserve
+            this stay.
+          </p>
+        ) : (
+          <p>Booking is available only for customer accounts.</p>
+        )}
       </section>
 
       <section className={styles.section}>
@@ -283,35 +324,44 @@ function PropertyDetails() {
           </div>
         )}
 
-        <form className={styles.reviewForm} onSubmit={handleReviewSubmit}>
-          <label>
-            Rating
-            <select
-              name="rating"
-              value={reviewForm.rating}
-              onChange={updateReviewField}
-            >
-              <option value="5">5</option>
-              <option value="4">4</option>
-              <option value="3">3</option>
-              <option value="2">2</option>
-              <option value="1">1</option>
-            </select>
-          </label>
-          <label>
-            Comment
-            <textarea
-              name="comment"
-              value={reviewForm.comment}
-              onChange={updateReviewField}
-              required
-            />
-          </label>
-          <button className={styles.shareButton} type="submit">
-            Post review
-          </button>
-          {reviewStatus ? <p className={styles.reviewStatus}>{reviewStatus}</p> : null}
-        </form>
+        {canUseCustomerActions ? (
+          <form className={styles.reviewForm} onSubmit={handleReviewSubmit}>
+            <label>
+              Rating
+              <select
+                name="rating"
+                value={reviewForm.rating}
+                onChange={updateReviewField}
+              >
+                <option value="5">5</option>
+                <option value="4">4</option>
+                <option value="3">3</option>
+                <option value="2">2</option>
+                <option value="1">1</option>
+              </select>
+            </label>
+            <label>
+              Comment
+              <textarea
+                name="comment"
+                value={reviewForm.comment}
+                onChange={updateReviewField}
+                required
+              />
+            </label>
+            <button className={styles.shareButton} type="submit">
+              Post review
+            </button>
+            {reviewStatus ? <p className={styles.reviewStatus}>{reviewStatus}</p> : null}
+          </form>
+        ) : !user ? (
+          <p>
+            Please <Link to="/login">login</Link> with a customer account to leave a
+            review.
+          </p>
+        ) : (
+          <p>Reviews can be posted only from customer accounts.</p>
+        )}
       </section>
     </main>
   );

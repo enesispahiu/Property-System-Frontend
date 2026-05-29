@@ -4,9 +4,9 @@ import styles from './HeroSearch.module.css';
 function HeroSearch({ onSearch }) {
   const [form, setForm] = useState({
     location: '',
-    checkIn: '',
-    checkOut: '',
-    guests: '2',
+    category: '',
+    minPrice: '',
+    maxPrice: '',
   });
 
   function updateField(event) {
@@ -33,27 +33,43 @@ function HeroSearch({ onSearch }) {
           Location
           <input
             name="location"
-            placeholder="City, country, or neighborhood"
+            placeholder="Where do you want to stay?"
             value={form.location}
             onChange={updateField}
           />
         </label>
         <label>
-          Check in
-          <input name="checkIn" type="date" value={form.checkIn} onChange={updateField} />
-        </label>
-        <label>
-          Check out
-          <input name="checkOut" type="date" value={form.checkOut} onChange={updateField} />
-        </label>
-        <label>
-          Guests
-          <select name="guests" value={form.guests} onChange={updateField}>
-            <option value="1">1 guest</option>
-            <option value="2">2 guests</option>
-            <option value="4">4 guests</option>
-            <option value="6">6 guests</option>
+          Category
+          <select name="category" value={form.category} onChange={updateField}>
+            <option value="">Any category</option>
+            <option value="Apartment">Apartment</option>
+            <option value="Villa">Villa</option>
+            <option value="Studio">Studio</option>
+            <option value="House">House</option>
+            <option value="Hotel Room">Hotel Room</option>
           </select>
+        </label>
+        <label>
+          Min price
+          <input
+            name="minPrice"
+            type="number"
+            min="0"
+            placeholder="No min"
+            value={form.minPrice}
+            onChange={updateField}
+          />
+        </label>
+        <label>
+          Max price
+          <input
+            name="maxPrice"
+            type="number"
+            min="0"
+            placeholder="No max"
+            value={form.maxPrice}
+            onChange={updateField}
+          />
         </label>
         <button className="primary-button" type="submit">
           Search

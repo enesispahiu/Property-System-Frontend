@@ -254,21 +254,56 @@ function normalizeProperty(property) {
   }
 
   const images = Array.isArray(property.images) ? property.images : [];
-  const imageUrl =
-    property.imageUrl ||
-    property.image ||
-    images[0]?.url ||
-    images[0]?.imageUrl ||
-    propertyImages.fallback;
+  const propertyImageList = Array.isArray(property.propertyImages)
+    ? property.propertyImages
+    : [];
+  const imageUrl = getPropertyImageUrl(property);
 
   return {
     ...property,
-    images,
+    images: images.length ? images : propertyImageList,
     amenities: Array.isArray(property.amenities) ? property.amenities : [],
     reviews: Array.isArray(property.reviews) ? property.reviews : [],
     bookings: Array.isArray(property.bookings) ? property.bookings : [],
     imageUrl,
   };
+}
+
+function resolveAssetUrl(value) {
+  if (!value || typeof value !== "string") {
+    return value;
+  }
+
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    return value;
+  }
+
+  if (value.startsWith("/")) {
+    return `${API_URL}${value}`;
+  }
+
+  return value;
+}
+
+export function getPropertyImageUrl(property) {
+  if (!property) {
+    return propertyImages.fallback;
+  }
+
+  const images = Array.isArray(property.images) ? property.images : [];
+  const propertyImageList = Array.isArray(property.propertyImages)
+    ? property.propertyImages
+    : [];
+  const imageUrl =
+    images[0]?.url ||
+    propertyImageList[0]?.url ||
+    images[0]?.imageUrl ||
+    property.imageUrl ||
+    property.image ||
+    propertyImageList[0]?.imageUrl ||
+    propertyImages.fallback;
+
+  return resolveAssetUrl(imageUrl);
 }
 
 function normalizeFavorite(favorite) {
@@ -411,11 +446,11 @@ export async function searchProperties(filters = {}, options = {}) {
       queryParams.set("maxPrice", filters.maxPrice);
     }
 
-    if (filters.minRating) {
+    if (Number(filters.minRating || 0) > 0) {
       queryParams.set("rating", filters.minRating);
     }
 
-    if (filters.rating) {
+    if (Number(filters.rating || 0) > 0) {
       queryParams.set("rating", filters.rating);
     }
 
@@ -428,7 +463,7 @@ export async function searchProperties(filters = {}, options = {}) {
     }
 
     const sort = filters.sort || filters.sortBy;
-    if (sort) {
+    if (sort && sort !== "recommended") {
       queryParams.set("sort", sort);
     }
 
@@ -798,23 +833,33 @@ function normalizeBookingList(result) {
 
 function normalizeBooking(booking) {
   const payments = Array.isArray(booking.payments) ? booking.payments : [];
-  const paidPayment = payments.find((payment) => payment.status === "PAID");
-  const latestPayment = payments[0] || null;
+  const sortedPayments = [...payments].sort(
+    (left, right) =>
+      new Date(right.createdAt || 0).getTime() -
+      new Date(left.createdAt || 0).getTime(),
+  );
+  const paidPayment = sortedPayments.find((payment) => payment.status === "PAID");
+  const latestPayment = sortedPayments[0] || null;
 
   return {
     ...booking,
     property: booking.property
-      ? {
+      ? normalizeProperty({
           ...booking.property,
+          images:
+            booking.property.images ||
+            booking.property.propertyImages ||
+            booking.property.PropertyImages ||
+            [],
           title: booking.property.title || booking.property.name,
           location:
             booking.property.location ||
             booking.property.address ||
             booking.property.city,
-        }
+        })
       : null,
-    payments,
-    paymentStatus: paidPayment ? "PAID" : "UNPAID",
+    payments: sortedPayments,
+    paymentStatus: paidPayment?.status || latestPayment?.status || "UNPAID",
     paymentMethod: paidPayment?.method || latestPayment?.method || "",
     totalPrice: Number(booking.totalPrice || booking.total_price || 0),
     startDate: booking.startDate || booking.start_date,

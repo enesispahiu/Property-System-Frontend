@@ -260,9 +260,9 @@ function BookingForm({ property }) {
             <button
               className={styles.dashboardButton}
               type="button"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/my-bookings")}
             >
-              Go to Dashboard
+              Go to My Bookings
             </button>
           ) : null}
         </section>

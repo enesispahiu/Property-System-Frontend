@@ -7,12 +7,75 @@ import styles from './Home.module.css';
 
 const PAGE_LIMIT = 6;
 
+function getRating(property) {
+  const averageFromReviews = Array.isArray(property.reviews) && property.reviews.length
+    ? property.reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
+      property.reviews.length
+    : 0;
+
+  return Number(property.averageRating || property.rating || averageFromReviews || 0);
+}
+
+function applyClientFilterAndSort(propertyList, filters) {
+  const minRating = Number(filters.minRating || 0);
+  const minPrice = filters.minPrice === "" ? null : Number(filters.minPrice);
+  const maxPrice = filters.maxPrice === "" ? null : Number(filters.maxPrice);
+  const category = (filters.category || "").toLowerCase();
+
+  const filtered = propertyList.filter((property) => {
+    const price = Number(property.price || 0);
+    const propertyCategory = (
+      property.category?.name ||
+      property.category ||
+      property.propertyType ||
+      property.type ||
+      ""
+    ).toLowerCase();
+
+    if (minRating > 0 && getRating(property) < minRating) {
+      return false;
+    }
+
+    if (minPrice !== null && price < minPrice) {
+      return false;
+    }
+
+    if (maxPrice !== null && price > maxPrice) {
+      return false;
+    }
+
+    if (category && !propertyCategory.includes(category)) {
+      return false;
+    }
+
+    return true;
+  });
+
+  return [...filtered].sort((left, right) => {
+    if (filters.sort === "price_asc") {
+      return Number(left.price || 0) - Number(right.price || 0);
+    }
+
+    if (filters.sort === "price_desc") {
+      return Number(right.price || 0) - Number(left.price || 0);
+    }
+
+    if (filters.sort === "rating_desc") {
+      return getRating(right) - getRating(left);
+    }
+
+    return 0;
+  });
+}
+
 function Home() {
   const [filters, setFilters] = useState({
     location: '',
     minPrice: '',
-    maxPrice: '1000',
+    maxPrice: '',
     minRating: '0',
+    category: '',
+    sort: 'recommended',
   });
   const [properties, setProperties] = useState([]);
   const [meta, setMeta] = useState({
@@ -70,7 +133,13 @@ function Home() {
   }, [filters]);
 
   function handleHeroSearch(search) {
-    setFilters((current) => ({ ...current, location: search.location }));
+    setFilters((current) => ({
+      ...current,
+      location: search.location,
+      category: search.category,
+      minPrice: search.minPrice,
+      maxPrice: search.maxPrice,
+    }));
   }
 
   async function handleLoadMore() {
@@ -108,7 +177,11 @@ function Home() {
   }
 
   const hasMore = meta.page < meta.totalPages;
-  const showingCount = Math.min(properties.length, meta.total || properties.length);
+  const visibleProperties = applyClientFilterAndSort(properties, filters);
+  const showingCount = Math.min(
+    visibleProperties.length,
+    meta.total || visibleProperties.length,
+  );
 
   return (
     <>
@@ -131,11 +204,11 @@ function Home() {
             ) : error && !properties.length ? null : (
               <>
                 <div className={styles.summary}>
-                  {meta.total > 0
+                  {visibleProperties.length > 0
                     ? `Showing ${showingCount} of ${meta.total} stays`
-                    : 'No stays available'}
+                    : 'No properties found. Try adjusting your filters.'}
                 </div>
-                <PropertyGrid properties={properties} />
+                <PropertyGrid properties={visibleProperties} />
                 {hasMore ? (
                   <button
                     type="button"

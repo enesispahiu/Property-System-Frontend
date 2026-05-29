@@ -1,0 +1,51 @@
+.state {
+  min-height: 56vh;
+  display: grid;
+  place-items: center;
+  padding: 48px 20px;
+  color: #52525b;
+  font-weight: 800;
+}
+
+.card {
+  width: min(520px, 100%);
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 28px;
+  text-align: center;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #ff385c;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.card h1 {
+  margin: 0 0 10px;
+  color: #18181b;
+  font-size: 1.55rem;
+}
+
+.card p {
+  margin: 0 0 20px;
+  color: #71717a;
+  line-height: 1.6;
+}
+
+.card a {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #18181b;
+  color: #ffffff;
+  padding: 0 16px;
+  font-weight: 900;
+}

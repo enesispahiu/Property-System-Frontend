@@ -186,7 +186,7 @@ function UserDashboard({
       <section className={styles.heading}>
         <div>
           <p className={styles.eyebrow}>Customer dashboard</p>
-          <h1>Your trips and account</h1>
+          <h1>My bookings and saved stays</h1>
           <p>
             Signed in as <strong>{user.email}</strong> ({user.role})
           </p>
@@ -195,9 +195,9 @@ function UserDashboard({
       </section>
 
       <section className={styles.stats}>
-        <StatCard label="Confirmed bookings" value={confirmedBookings.length} />
-        <StatCard label="Pending reservations" value={pendingBookings.length} />
-        <StatCard label="Cancelled bookings" value={cancelledBookingsList.length} />
+        <StatCard label="My active bookings" value={confirmedBookings.length} />
+        <StatCard label="My pending bookings" value={pendingBookings.length} />
+        <StatCard label="My cancelled bookings" value={cancelledBookingsList.length} />
         <StatCard label="Total spent" value={money(totalSpent)} />
         <StatCard label="Saved properties" value={favorites.length} />
         <StatCard label="My reviews" value={reviews.length} />
@@ -208,10 +208,10 @@ function UserDashboard({
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
-            <h2>My Favourites</h2>
+            <h2>Favorites</h2>
             <p>{favorites.length} saved properties</p>
           </div>
-          <Link to="/my-favourites">View all favourites</Link>
+          <Link to="/my-favorites">View all favorites</Link>
         </div>
       </section>
 
@@ -314,13 +314,13 @@ function TenantAdminDashboard({
       <section className={styles.heading}>
         <div>
           <p className={styles.eyebrow}>Business dashboard</p>
-          <h1>Tenant performance overview</h1>
+          <h1>Business performance overview</h1>
           <p>
             Signed in as <strong>{user.email}</strong> for tenant #{user.tenantId}.
           </p>
         </div>
         <div className={styles.actions}>
-          <Link to="/admin">Business Admin Panel</Link>
+          <Link to="/business/operations">Business Operations</Link>
         </div>
       </section>
 
@@ -340,10 +340,10 @@ function TenantAdminDashboard({
       </section>
 
       <section className={styles.quickActions}>
-        <Link to="/admin">Manage Properties</Link>
-        <Link to="/admin">Manage Bookings</Link>
-        <Link to="/admin">Manage Reviews</Link>
-        <Link to="/admin">Tenant Settings</Link>
+        <Link to="/business/operations">Manage Listings</Link>
+        <Link to="/business/operations">Manage Reservations</Link>
+        <Link to="/business/reviews">Guest Reviews</Link>
+        <Link to="/business">Tenant Settings</Link>
       </section>
 
       <section className={styles.grid}>
@@ -395,6 +395,12 @@ function SuperAdminDashboard({
   const totalBookings =
     bookings.length ||
     tenants.reduce((sum, tenant) => sum + Number(tenant._count?.bookings || 0), 0);
+  const activeTenants = tenants.filter(
+    (tenant) => (tenant.status || "ACTIVE") === "ACTIVE",
+  ).length;
+  const inactiveTenants = tenants.filter(
+    (tenant) => tenant.status && tenant.status !== "ACTIVE",
+  ).length;
 
   return (
     <main className={styles.page}>
@@ -408,7 +414,7 @@ function SuperAdminDashboard({
           </p>
         </div>
         <div className={styles.actions}>
-          <Link to="/platform">Platform Admin Panel</Link>
+          <Link to="/platform/tenant-management">Tenant Management</Link>
         </div>
       </section>
 
@@ -418,6 +424,8 @@ function SuperAdminDashboard({
 
       <section className={styles.stats}>
         <StatCard label="Total tenants" value={tenants.length} />
+        <StatCard label="Active tenants" value={activeTenants} />
+        <StatCard label="Inactive tenants" value={inactiveTenants} />
         <StatCard label="Total users" value={totalUsers || "Data unavailable"} />
         <StatCard
           label="Total properties"
@@ -427,14 +435,12 @@ function SuperAdminDashboard({
           label="Total bookings"
           value={totalBookings || "Data unavailable"}
         />
-        <StatCard label="Active tenants" value={tenants.length} />
-        <StatCard label="Recent tenants" value={tenants.slice(0, 5).length} />
       </section>
 
       <section className={styles.quickActions}>
-        <Link to="/platform">Create Tenant</Link>
-        <Link to="/platform">Manage Tenants</Link>
-        <Link to="/platform">Create Tenant Admin</Link>
+        <Link to="/platform/tenant-management">Manage Tenants</Link>
+        <Link to="/platform/tenant-management">Create Tenant</Link>
+        <Link to="/platform/tenant-management">Create Tenant Admin</Link>
       </section>
 
       <section className={styles.panel}>
