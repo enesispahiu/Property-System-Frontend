@@ -268,3 +268,26 @@
   color: #0f766e;
   font-weight: 800;
 }
+
+.previewNotice {
+  margin: 14px 0 0;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  background: #fafafa;
+  padding: 12px;
+  color: #52525b;
+  font-weight: 800;
+}
+
+.manageLink {
+  width: 100%;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+  border-radius: 8px;
+  background: #18181b;
+  color: #ffffff;
+  font-weight: 900;
+}

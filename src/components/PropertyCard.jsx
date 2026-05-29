@@ -1,8 +1,11 @@
 import { Link } from "react-router-dom";
 import { propertyImages } from "../assets/propertyImages.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import styles from "./PropertyCard.module.css";
 
 function PropertyCard({ property }) {
+  const { user } = useAuth();
+
   if (!property) {
     return null;
   }
@@ -18,6 +21,7 @@ function PropertyCard({ property }) {
   const location = property.location || "Location not specified";
   const description =
     property.description || "No description available for this property.";
+  const canUseCustomerActions = !user || user.role === "USER";
 
   return (
     <article className={styles.card}>
@@ -50,9 +54,13 @@ function PropertyCard({ property }) {
             <Link to={`/properties/${property.id}`} className={styles.details}>
               View details
             </Link>
-            <Link to={`/properties/${property.id}`} className={styles.book}>
-              Book now
-            </Link>
+            {canUseCustomerActions ? (
+              <Link to={`/properties/${property.id}`} className={styles.book}>
+                Book now
+              </Link>
+            ) : (
+              <span className={styles.preview}>Preview mode</span>
+            )}
           </div>
         </div>
       </div>

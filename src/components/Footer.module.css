@@ -42,6 +42,10 @@
 .brandBlock p,
 .brandBlock small,
 .columns a,
+.columns span,
+.contact,
+.contact a,
+.contact span,
 .bottom {
   color: #64748b;
 }
@@ -59,26 +63,36 @@
   padding-top: 28px;
 }
 
-.columns nav {
+.columns nav,
+.contact {
   display: grid;
   gap: 10px;
   align-content: start;
 }
 
-.columns h2 {
+.columns h2,
+.contact h2 {
   margin: 0 0 4px;
   color: #111827;
   font-size: 0.95rem;
 }
 
-.columns a {
+.columns a,
+.columns span,
+.contact a,
+.contact span {
   width: fit-content;
   font-size: 0.94rem;
   font-weight: 650;
 }
 
-.columns a:hover {
+.columns a:hover,
+.contact a:hover {
   color: #111827;
+}
+
+.contact {
+  font-style: normal;
 }
 
 .bottom {

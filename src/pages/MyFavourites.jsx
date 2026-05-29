@@ -50,8 +50,8 @@ function MyFavourites() {
     <main className={styles.page}>
       <section className={styles.heading}>
         <p className={styles.eyebrow}>Saved stays</p>
-        <h1>My Favourites</h1>
-        <p>Keep track of homes, villas, cabins, and apartments you want to revisit.</p>
+        <h1>My Favorites</h1>
+        <p>Saved properties you like, ready to revisit when you plan your next stay.</p>
       </section>
 
       {status ? <div className={styles.status}>{status}</div> : null}
@@ -59,7 +59,7 @@ function MyFavourites() {
       {favorites.length === 0 ? (
         <section className={styles.empty}>
           <h2>You have no saved properties yet.</h2>
-          <Link to="/">Explore properties</Link>
+          <Link to="/explore">Explore properties</Link>
         </section>
       ) : (
         <section className={styles.grid}>

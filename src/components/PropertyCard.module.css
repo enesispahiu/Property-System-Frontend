@@ -116,6 +116,18 @@
   font-weight: 850;
 }
 
+.preview {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  color: #71717a;
+  padding: 0 10px;
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
 .details:hover {
   text-decoration: underline;
 }

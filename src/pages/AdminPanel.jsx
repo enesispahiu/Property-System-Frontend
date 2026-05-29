@@ -1,3 +1,4 @@
+import { Link, useLocation } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   cancelBooking,
@@ -60,6 +61,7 @@ function formatDate(value) {
 }
 
 function AdminPanel() {
+  const location = useLocation();
   const [user, setUser] = useState(null);
   const [users, setUsers] = useState([]);
   const [properties, setProperties] = useState([]);
@@ -81,6 +83,13 @@ function AdminPanel() {
   const [error, setError] = useState("");
   const tenantFormRef = useRef(null);
   const propertyFormRef = useRef(null);
+  const isBusinessReviewsPage = location.pathname.includes("/business/reviews");
+  const isBusinessOperationsPage =
+    location.pathname.includes("/business/operations") ||
+    location.pathname === "/admin" ||
+    location.pathname === "/business";
+  const showBusinessOperations = !isBusinessReviewsPage;
+  const showGuestReviews = isBusinessReviewsPage || !isBusinessOperationsPage;
 
   const editingTenant = useMemo(() => {
     return tenants.find((tenant) => tenant.id === editingTenantId) || null;
@@ -533,16 +542,23 @@ function AdminPanel() {
       <main className={styles.page}>
         <section className={styles.heading}>
           <p className={styles.eyebrow}>Platform</p>
-          <h1>Platform Admin Panel</h1>
+          <h1>Tenant Management</h1>
           <p>
-            Signed in as <strong>{user.email}</strong>. Manage tenants and
-            tenant admins across the SaaS platform.
+            Signed in as <strong>{user.email}</strong>. Manage tenants, tenant
+            lifecycle, and tenant admin accounts from one place.
           </p>
         </section>
+
+        <nav className={styles.sectionNav} aria-label="Tenant management sections">
+          <a href="#tenants">Tenants</a>
+          <a href="#create-tenant">Create Tenant</a>
+          <a href="#tenant-admins">Create Tenant Admin</a>
+        </nav>
 
         {status ? <div className={styles.status}>{status}</div> : null}
 
         <section
+          id="create-tenant"
           className={`${styles.panel} ${editingTenantId ? styles.editMode : ""}`}
           ref={tenantFormRef}
         >
@@ -606,9 +622,9 @@ function AdminPanel() {
           </form>
         </section>
 
-        <section className={styles.panel}>
+        <section className={styles.panel} id="tenant-admins">
           <div className={styles.panelHeader}>
-            <h2>Tenant Admins</h2>
+          <h2>Create Tenant Admin</h2>
           </div>
           <form className={styles.form} onSubmit={handleCreateTenantAdmin}>
             <select
@@ -645,7 +661,7 @@ function AdminPanel() {
           </form>
         </section>
 
-        <section className={styles.panel}>
+        <section className={styles.panel} id="tenants">
           <div className={styles.panelHeader}>
             <h2>Tenants</h2>
             <div className={styles.panelActions}>
@@ -724,15 +740,22 @@ function AdminPanel() {
     <main className={styles.page}>
       <section className={styles.heading}>
         <p className={styles.eyebrow}>Business Admin</p>
-        <h1>Business Admin Panel</h1>
+        <h1>{isBusinessReviewsPage ? "Guest Reviews" : "Business Operations"}</h1>
         <p>
           Signed in as <strong>{user.email}</strong> for tenant #{user.tenantId}
           .
         </p>
       </section>
 
+      <nav className={styles.sectionNav} aria-label="Business admin sections">
+        <Link to="/business/operations">Business Operations</Link>
+        <Link to="/business/reviews">Guest Reviews</Link>
+      </nav>
+
       {status ? <div className={styles.status}>{status}</div> : null}
 
+      {showBusinessOperations ? (
+      <>
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <h2>Manage Users</h2>
@@ -782,11 +805,12 @@ function AdminPanel() {
       </section>
 
       <section
+        id="listings"
         className={`${styles.panel} ${editingPropertyId ? styles.editMode : ""}`}
         ref={propertyFormRef}
       >
         <div className={`${styles.panelHeader} ${styles.formHeader}`}>
-          <h2>{editingPropertyId ? "Edit Property" : "Add Property"}</h2>
+          <h2>{editingPropertyId ? "Edit Listing" : "Create Listing"}</h2>
           {editingPropertyId ? (
             <span className={styles.editBadge}>Edit mode</span>
           ) : null}
@@ -841,7 +865,7 @@ function AdminPanel() {
             </button>
             <button type="submit">
               {editingPropertyId
-                ? "Save Property Changes"
+                ? "Save Listing Changes"
                 : "Create Property"}
             </button>
             {editingPropertyId ? (
@@ -906,9 +930,9 @@ function AdminPanel() {
         )}
       </section>
 
-      <section className={styles.panel}>
+      <section className={styles.panel} id="reservations">
         <div className={styles.panelHeader}>
-          <h2>Manage Bookings</h2>
+          <h2>Manage Reservations</h2>
         </div>
 
         {bookings.length === 0 ? (
@@ -957,10 +981,13 @@ function AdminPanel() {
           </div>
         )}
       </section>
+      </>
+      ) : null}
 
-      <section className={styles.panel}>
+      {showGuestReviews ? (
+      <section className={styles.panel} id="guest-reviews">
         <div className={styles.panelHeader}>
-          <h2>Manage Reviews</h2>
+          <h2>Guest Reviews</h2>
           <select
             value={selectedReviewPropertyId}
             onChange={(event) => loadReviews(event.target.value)}
@@ -993,14 +1020,15 @@ function AdminPanel() {
                     - {formatDate(review.createdAt)} - {review.comment}
                   </span>
                   {review.analysis ? (
-                    <span>
-                      AI: {review.analysis.sentiment} - {review.analysis.summary}
-                      {review.analysis.issue
-                        ? ` - Issue: ${review.analysis.issue}`
-                        : ""}
-                    </span>
+                    <div className={styles.aiAnalysis}>
+                      <strong>AI Sentiment: {review.analysis.sentiment}</strong>
+                      <span>AI Summary: {review.analysis.summary}</span>
+                      <span>
+                        AI Issue: {review.analysis.issue || "No issue detected"}
+                      </span>
+                    </div>
                   ) : (
-                    <span>AI analysis pending.</span>
+                    <div className={styles.aiPending}>AI analysis pending...</div>
                   )}
                 </div>
                 <button
@@ -1014,6 +1042,7 @@ function AdminPanel() {
           </div>
         )}
       </section>
+      ) : null}
     </main>
   );
 }
