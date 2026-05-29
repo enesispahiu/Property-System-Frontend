@@ -143,16 +143,16 @@ function AdminPanel() {
       setProperties(Array.isArray(propertiesData) ? propertiesData : []);
       setBookings(Array.isArray(bookingsData) ? bookingsData : []);
 
-      const firstPropertyId =
-        selectedReviewPropertyId || propertiesData?.[0]?.id || "";
-      setSelectedReviewPropertyId(
-        firstPropertyId ? String(firstPropertyId) : "",
-      );
+      const nextReviewPropertyId =
+        selectedReviewPropertyId ||
+        (propertiesData?.length > 0 ? "all" : "");
+      setSelectedReviewPropertyId(String(nextReviewPropertyId));
 
-      if (firstPropertyId) {
-        const reviewData = await getPropertyReviews(firstPropertyId).catch(
-          () => [],
-        );
+      if (nextReviewPropertyId) {
+        const reviewData =
+          nextReviewPropertyId === "all"
+            ? await loadAllTenantReviews(propertiesData)
+            : await getPropertyReviews(nextReviewPropertyId).catch(() => []);
         setReviews(Array.isArray(reviewData) ? reviewData : []);
       } else {
         setReviews([]);
@@ -168,6 +168,31 @@ function AdminPanel() {
     loadAdminData();
   }, [showInactiveTenants]);
 
+  async function loadAllTenantReviews(propertyList = properties) {
+    const reviewGroups = await Promise.all(
+      propertyList.map((property) =>
+        getPropertyReviews(property.id)
+          .then((items) =>
+            Array.isArray(items)
+              ? items.map((review) => ({
+                  ...review,
+                  propertyId: review.propertyId || property.id,
+                  property: review.property || {
+                    id: property.id,
+                    title: property.title,
+                  },
+                }))
+              : [],
+          )
+          .catch(() => []),
+      ),
+    );
+
+    return reviewGroups
+      .flat()
+      .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+  }
+
   async function loadReviews(propertyId) {
     setSelectedReviewPropertyId(propertyId);
     setStatus("");
@@ -178,7 +203,10 @@ function AdminPanel() {
     }
 
     try {
-      const reviewData = await getPropertyReviews(propertyId);
+      const reviewData =
+        propertyId === "all"
+          ? await loadAllTenantReviews()
+          : await getPropertyReviews(propertyId);
       setReviews(Array.isArray(reviewData) ? reviewData : []);
     } catch (requestError) {
       setStatus(requestError.message || "Unable to load reviews.");
@@ -937,6 +965,7 @@ function AdminPanel() {
             value={selectedReviewPropertyId}
             onChange={(event) => loadReviews(event.target.value)}
           >
+            <option value="all">All properties</option>
             <option value="">Select property</option>
             {properties.map((property) => (
               <option key={property.id} value={property.id}>
@@ -963,6 +992,16 @@ function AdminPanel() {
                     {review.property?.title || `property #${review.propertyId}`}{" "}
                     - {formatDate(review.createdAt)} - {review.comment}
                   </span>
+                  {review.analysis ? (
+                    <span>
+                      AI: {review.analysis.sentiment} - {review.analysis.summary}
+                      {review.analysis.issue
+                        ? ` - Issue: ${review.analysis.issue}`
+                        : ""}
+                    </span>
+                  ) : (
+                    <span>AI analysis pending.</span>
+                  )}
                 </div>
                 <button
                   type="button"

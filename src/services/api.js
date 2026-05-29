@@ -677,7 +677,7 @@ export async function payBooking(bookingId, method) {
 }
 
 export async function getPropertyReviews(propertyId) {
-  return request(`/properties/${propertyId}/reviews`);
+  return normalizeReviewList(await request(`/properties/${propertyId}/reviews`));
 }
 
 export async function getReviews(propertyId) {
@@ -703,6 +703,18 @@ export async function deleteReview(id) {
   return request(`/reviews/${id}`, {
     method: "DELETE",
   });
+}
+
+function normalizeReviewList(result) {
+  if (Array.isArray(result)) {
+    return result;
+  }
+
+  if (Array.isArray(result?.data)) {
+    return result.data;
+  }
+
+  return [];
 }
 
 export async function aiChat(message) {
