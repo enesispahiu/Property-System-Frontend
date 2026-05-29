@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import Filters from '../components/Filters.jsx';
 import HeroSearch from '../components/HeroSearch.jsx';
 import PropertyGrid from '../components/PropertyGrid.jsx';
-import { getProperties, isAuthenticated, searchProperties } from '../services/api.js';
+import { searchProperties } from '../services/api.js';
 import styles from './Home.module.css';
+
+const PAGE_LIMIT = 6;
 
 function Home() {
   const [filters, setFilters] = useState({
@@ -13,8 +15,15 @@ function Home() {
     minRating: '0',
   });
   const [properties, setProperties] = useState([]);
+  const [meta, setMeta] = useState({
+    page: 1,
+    limit: PAGE_LIMIT,
+    total: 0,
+    totalPages: 1,
+  });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   useEffect(() => {
     let isCurrent = true;
@@ -27,18 +36,23 @@ function Home() {
         const query = {
           ...filters,
           page: 1,
-          limit: 10,
+          limit: PAGE_LIMIT,
         };
-        const data = isAuthenticated()
-          ? await getProperties(query)
-          : await searchProperties(query);
+        const result = await searchProperties(query, { includeMeta: true });
 
         if (isCurrent) {
-          setProperties(data);
+          setProperties(result.data);
+          setMeta(result.meta);
         }
       } catch (requestError) {
         if (isCurrent) {
           setProperties([]);
+          setMeta({
+            page: 1,
+            limit: PAGE_LIMIT,
+            total: 0,
+            totalPages: 1,
+          });
           setError(requestError.message || 'Unable to load properties.');
         }
       } finally {
@@ -59,6 +73,43 @@ function Home() {
     setFilters((current) => ({ ...current, location: search.location }));
   }
 
+  async function handleLoadMore() {
+    if (isLoadingMore || meta.page >= meta.totalPages) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+    setError('');
+
+    try {
+      const result = await searchProperties(
+        {
+          ...filters,
+          page: meta.page + 1,
+          limit: PAGE_LIMIT,
+        },
+        { includeMeta: true },
+      );
+
+      setProperties((current) => {
+        const existingIds = new Set(current.map((property) => property.id));
+        const nextProperties = result.data.filter(
+          (property) => !existingIds.has(property.id),
+        );
+
+        return [...current, ...nextProperties];
+      });
+      setMeta(result.meta);
+    } catch (requestError) {
+      setError(requestError.message || 'Unable to load more properties.');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
+
+  const hasMore = meta.page < meta.totalPages;
+  const showingCount = Math.min(properties.length, meta.total || properties.length);
+
   return (
     <>
       <HeroSearch onSearch={handleHeroSearch} />
@@ -73,13 +124,31 @@ function Home() {
           </p>
         </section>
         <div className="layout-grid">
-          {error ? (
-            <div className={styles.state}>{error}</div>
-          ) : isLoading ? (
-            <div className={styles.state}>Loading properties...</div>
-          ) : (
-            <PropertyGrid properties={properties} />
-          )}
+          <div className={styles.results}>
+            {error ? <div className={styles.state}>{error}</div> : null}
+            {isLoading ? (
+              <div className={styles.state}>Loading properties...</div>
+            ) : error && !properties.length ? null : (
+              <>
+                <div className={styles.summary}>
+                  {meta.total > 0
+                    ? `Showing ${showingCount} of ${meta.total} stays`
+                    : 'No stays available'}
+                </div>
+                <PropertyGrid properties={properties} />
+                {hasMore ? (
+                  <button
+                    type="button"
+                    className={styles.loadMore}
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore}
+                  >
+                    {isLoadingMore ? 'Loading...' : 'Load more'}
+                  </button>
+                ) : null}
+              </>
+            )}
+          </div>
           <Filters filters={filters} onChange={setFilters} />
         </div>
       </main>

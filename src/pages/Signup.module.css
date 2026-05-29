@@ -106,6 +106,14 @@
   font-weight: 850;
 }
 
+.note {
+  margin: 0;
+  color: #71717a;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
 @media (max-width: 840px) {
   .panel {
     grid-template-columns: 1fr;

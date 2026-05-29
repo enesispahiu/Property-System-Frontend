@@ -28,6 +28,14 @@ function Navbar() {
           >
             Dashboard
           </NavLink>
+          {isAuthenticated ? (
+            <NavLink
+              to="/my-favourites"
+              className={({ isActive }) => (isActive ? styles.active : '')}
+            >
+              My Favourites
+            </NavLink>
+          ) : null}
           {user?.role === 'SUPER_ADMIN' || user?.role === 'TENANT_ADMIN' ? (
             <NavLink
               to={user?.role === 'SUPER_ADMIN' ? '/platform' : '/admin'}

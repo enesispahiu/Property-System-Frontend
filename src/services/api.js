@@ -219,35 +219,111 @@ async function request(path, options = {}) {
 }
 
 function normalizePropertyList(result) {
-  if (Array.isArray(result)) {
-    return result;
+  return normalizePropertySearchResult(result).data;
+}
+
+function normalizePropertySearchResult(result, fallbackFilters = {}) {
+  const properties = Array.isArray(result)
+    ? result
+    : Array.isArray(result?.data)
+      ? result.data
+      : [];
+  const page = Number(fallbackFilters.page || 1);
+  const limit = Number(fallbackFilters.limit || properties.length || 0);
+  const responseMeta = result?.meta || result?.pagination || {};
+  const total = Number(responseMeta.total ?? properties.length);
+  const normalizedLimit = Number(responseMeta.limit || limit);
+  const totalPages =
+    Number(responseMeta.totalPages) ||
+    (normalizedLimit > 0 ? Math.ceil(total / normalizedLimit) : 1);
+
+  return {
+    data: properties.map(normalizeProperty),
+    meta: {
+      page: Number(responseMeta.page || page),
+      limit: normalizedLimit,
+      total,
+      totalPages,
+    },
+  };
+}
+
+function normalizeProperty(property) {
+  if (!property) {
+    return property;
   }
 
-  if (Array.isArray(result?.data)) {
-    return result.data;
+  const images = Array.isArray(property.images) ? property.images : [];
+  const imageUrl =
+    property.imageUrl ||
+    property.image ||
+    images[0]?.url ||
+    images[0]?.imageUrl ||
+    propertyImages.fallback;
+
+  return {
+    ...property,
+    images,
+    amenities: Array.isArray(property.amenities) ? property.amenities : [],
+    reviews: Array.isArray(property.reviews) ? property.reviews : [],
+    bookings: Array.isArray(property.bookings) ? property.bookings : [],
+    imageUrl,
+  };
+}
+
+function normalizeFavorite(favorite) {
+  if (!favorite) {
+    return favorite;
   }
 
-  return [];
+  const favoriteData = favorite.favorite || favorite;
+  const property = favoriteData.property || favoriteData;
+
+  return {
+    ...favoriteData,
+    property: normalizeProperty(property),
+  };
 }
 
 function markMockProperty(property) {
-  return property ? { ...property, isMock: true } : property;
+  return property ? normalizeProperty({ ...property, isMock: true }) : property;
 }
 
 function filterMockProperties(filters = {}) {
-  return mockProperties.filter((property) => {
-    const matchesLocation =
-      !filters.location ||
-      property.location.toLowerCase().includes(filters.location.toLowerCase());
+  return mockProperties
+    .filter((property) => {
+      const matchesLocation =
+        !filters.location ||
+        property.location
+          .toLowerCase()
+          .includes(filters.location.toLowerCase());
 
-    const matchesPrice =
-      property.price >= Number(filters.minPrice || 0) &&
-      property.price <= Number(filters.maxPrice || 1000);
-    const matchesRating =
-      property.rating >= Number(filters.minRating || filters.rating || 0);
+      const matchesPrice =
+        property.price >= Number(filters.minPrice || 0) &&
+        property.price <= Number(filters.maxPrice || 1000);
+      const matchesRating =
+        property.rating >= Number(filters.minRating || filters.rating || 0);
 
-    return matchesLocation && matchesPrice && matchesRating;
-  }).map(markMockProperty);
+      return matchesLocation && matchesPrice && matchesRating;
+    })
+    .map(markMockProperty);
+}
+
+function paginateMockProperties(properties, filters = {}) {
+  const page = Number(filters.page || 1);
+  const limit = Number(filters.limit || properties.length || 6);
+  const start = (page - 1) * limit;
+  const data = properties.slice(start, start + limit);
+
+  return {
+    data,
+    meta: {
+      page,
+      limit,
+      total: properties.length,
+      totalPages: Math.ceil(properties.length / limit),
+    },
+  };
 }
 
 function extractAccessToken(data) {
@@ -299,44 +375,27 @@ export async function getCurrentUser() {
   return request("/auth/me");
 }
 
-export async function getProperties(filters = {}) {
+export async function getProperties(filters = {}, options = {}) {
   try {
-    const queryParams = new URLSearchParams();
-
-    if (filters.location) {
-      queryParams.set("location", filters.location);
-    }
-
-    if (filters.minPrice) {
-      queryParams.set("minPrice", filters.minPrice);
-    }
-
-    if (filters.maxPrice) {
-      queryParams.set("maxPrice", filters.maxPrice);
-    }
-
-    if (filters.page) {
-      queryParams.set("page", filters.page);
-    }
-
-    if (filters.limit) {
-      queryParams.set("limit", filters.limit);
-    }
-
-    const queryString = queryParams.toString();
-    const path = queryString ? `/properties?${queryString}` : "/properties";
-
-    return normalizePropertyList(await request(path));
+    return await searchProperties(filters, options);
   } catch (error) {
     if (error.isConnectionError || error.status === 401) {
       throw error;
     }
 
-    return filterMockProperties(filters);
+    const result = paginateMockProperties(
+      filterMockProperties(filters),
+      filters,
+    );
+    return options.includeMeta ? result : result.data;
   }
 }
 
-export async function searchProperties(filters = {}) {
+export async function getAdminProperties() {
+  return normalizePropertyList(await request("/properties"));
+}
+
+export async function searchProperties(filters = {}, options = {}) {
   try {
     const queryParams = new URLSearchParams();
 
@@ -364,12 +423,13 @@ export async function searchProperties(filters = {}) {
       queryParams.set("propertyType", filters.propertyType);
     }
 
-    if (filters.sortBy) {
-      queryParams.set("sortBy", filters.sortBy);
+    if (filters.category) {
+      queryParams.set("category", filters.category);
     }
 
-    if (filters.sort) {
-      queryParams.set("sort", filters.sort);
+    const sort = filters.sort || filters.sortBy;
+    if (sort) {
+      queryParams.set("sort", sort);
     }
 
     if (filters.page) {
@@ -385,33 +445,24 @@ export async function searchProperties(filters = {}) {
       ? `/search/properties?${queryString}`
       : "/search/properties";
 
-    return normalizePropertyList(await request(path));
+    const result = normalizePropertySearchResult(await request(path), filters);
+    return options.includeMeta ? result : result.data;
   } catch (error) {
     if (error.isConnectionError || error.status === 401) {
       throw error;
     }
 
-    return filterMockProperties(filters);
+    const result = paginateMockProperties(
+      filterMockProperties(filters),
+      filters,
+    );
+    return options.includeMeta ? result : result.data;
   }
 }
 
 export async function getPropertyById(id) {
-  if (!isAuthenticated()) {
-    const publicProperties = await searchProperties({ page: 1, limit: 100 });
-    const publicProperty = publicProperties.find(
-      (property) => String(property.id) === String(id),
-    );
-
-    return (
-      publicProperty ||
-      markMockProperty(
-        mockProperties.find((property) => String(property.id) === String(id)),
-      )
-    );
-  }
-
   try {
-    return await request(`/properties/${id}`);
+    return normalizeProperty(await request(`/properties/${id}`));
   } catch (error) {
     if (error.isConnectionError || error.status === 401) {
       throw error;
@@ -423,7 +474,7 @@ export async function getPropertyById(id) {
     );
 
     if (publicProperty) {
-      return publicProperty;
+      return normalizeProperty(publicProperty);
     }
 
     return markMockProperty(
@@ -441,8 +492,6 @@ export async function createProperty(payload) {
       location: payload.location,
       price: Number(payload.price),
       ...(payload.status ? { status: payload.status } : {}),
-      ...(payload.tenantId ? { tenantId: Number(payload.tenantId) } : {}),
-      ...(payload.ownerId ? { ownerId: Number(payload.ownerId) } : {}),
     }),
   });
 }
@@ -463,6 +512,14 @@ export async function deleteProperty(id) {
   });
 }
 
+export async function reactivateProperty(id) {
+  return normalizeProperty(
+    await request(`/properties/${id}/reactivate`, {
+      method: "PATCH",
+    }),
+  );
+}
+
 export async function createBooking(payload) {
   return request("/bookings", {
     method: "POST",
@@ -475,7 +532,7 @@ export async function createBooking(payload) {
 }
 
 export async function getBookings() {
-  return request("/bookings");
+  return normalizeBookingList(await request("/bookings"));
 }
 
 export async function getBookingById(id) {
@@ -493,8 +550,17 @@ export async function getUsers() {
   return request("/users");
 }
 
-export async function getTenants() {
-  return request("/platform/tenants");
+export async function getTenants(options = {}) {
+  const queryParams = new URLSearchParams();
+
+  if (options.includeInactive) {
+    queryParams.set("includeInactive", "true");
+  }
+
+  const queryString = queryParams.toString();
+  return request(
+    queryString ? `/platform/tenants?${queryString}` : "/platform/tenants",
+  );
 }
 
 export async function createTenant(payload) {
@@ -514,6 +580,18 @@ export async function updateTenant(id, payload) {
 export async function deleteTenant(id) {
   return request(`/platform/tenants/${id}`, {
     method: "DELETE",
+  });
+}
+
+export async function deactivateTenant(id) {
+  return request(`/platform/tenants/${id}/deactivate`, {
+    method: "PATCH",
+  });
+}
+
+export async function reactivateTenant(id) {
+  return request(`/platform/tenants/${id}/reactivate`, {
+    method: "PATCH",
   });
 }
 
@@ -559,6 +637,45 @@ export async function confirmBooking(id) {
   });
 }
 
+export async function addFavorite(propertyId) {
+  return normalizeFavorite(
+    await request(`/favorites/${Number(propertyId)}`, {
+      method: "POST",
+    }),
+  );
+}
+
+export async function getMyFavorites() {
+  const result = await request("/favorites/me");
+  const favorites = Array.isArray(result)
+    ? result
+    : Array.isArray(result?.data)
+      ? result.data
+      : [];
+
+  return favorites.map(normalizeFavorite);
+}
+
+export async function removeFavorite(propertyId) {
+  return request(`/favorites/${Number(propertyId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function payBooking(bookingId, method) {
+  const result = await request(`/payments/bookings/${Number(bookingId)}/pay`, {
+    method: "POST",
+    body: JSON.stringify({ method }),
+  });
+
+  return {
+    ...result,
+    booking: result?.booking
+      ? normalizeBooking(result.booking)
+      : result?.booking,
+  };
+}
+
 export async function getPropertyReviews(propertyId) {
   return request(`/properties/${propertyId}/reviews`);
 }
@@ -589,7 +706,9 @@ export async function deleteReview(id) {
 }
 
 export async function aiChat(message) {
-  const properties = await searchProperties({ page: 1, limit: 12 }).catch(() => []);
+  const properties = await searchProperties({ page: 1, limit: 12 }).catch(
+    () => [],
+  );
   const propertyContext = properties
     .map((property) => {
       return `${property.title} | ${property.location} | $${property.price}/night | ${property.description || "No description"}`;
@@ -634,6 +753,12 @@ export async function analyzeReview(comment) {
 export async function getDashboardSummary() {
   const user = await getCurrentUser();
   const bookings = user?.id ? await getUserBookings(user.id) : [];
+  const paidConfirmedBookings = Array.isArray(bookings)
+    ? bookings.filter(
+        (booking) =>
+          booking.status === "CONFIRMED" && booking.paymentStatus === "PAID",
+      )
+    : [];
 
   return {
     user,
@@ -641,12 +766,10 @@ export async function getDashboardSummary() {
       ? bookings.filter((booking) => booking.status !== "CANCELLED").length
       : 0,
     savedHomes: 0,
-    totalSpent: Array.isArray(bookings)
-      ? bookings.reduce(
-          (sum, booking) => sum + Number(booking.totalPrice || 0),
-          0,
-        )
-      : 0,
+    totalSpent: paidConfirmedBookings.reduce(
+      (sum, booking) => sum + Number(booking.totalPrice || 0),
+      0,
+    ),
     bookings,
   };
 }
@@ -658,7 +781,15 @@ function normalizeBookingList(result) {
       ? result.data
       : [];
 
-  return bookings.map((booking) => ({
+  return bookings.map(normalizeBooking);
+}
+
+function normalizeBooking(booking) {
+  const payments = Array.isArray(booking.payments) ? booking.payments : [];
+  const paidPayment = payments.find((payment) => payment.status === "PAID");
+  const latestPayment = payments[0] || null;
+
+  return {
     ...booking,
     property: booking.property
       ? {
@@ -670,9 +801,12 @@ function normalizeBookingList(result) {
             booking.property.city,
         }
       : null,
+    payments,
+    paymentStatus: paidPayment ? "PAID" : "UNPAID",
+    paymentMethod: paidPayment?.method || latestPayment?.method || "",
     totalPrice: Number(booking.totalPrice || booking.total_price || 0),
     startDate: booking.startDate || booking.start_date,
     endDate: booking.endDate || booking.end_date,
     status: booking.status || "PENDING",
-  }));
+  };
 }

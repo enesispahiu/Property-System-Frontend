@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext.jsx';
 import styles from './Signup.module.css';
 
 const initialForm = {
-  tenantName: '',
   email: '',
   password: '',
   confirmPassword: '',
@@ -12,10 +11,6 @@ const initialForm = {
 
 function validate(form) {
   const errors = {};
-
-  if (!form.tenantName.trim()) {
-    errors.tenantName = 'Tenant name is required.';
-  }
 
   if (!form.email.trim()) {
     errors.email = 'Email is required.';
@@ -67,7 +62,6 @@ function Signup() {
 
     try {
       await register({
-        tenantName: form.tenantName.trim(),
         email: form.email.trim(),
         password: form.password,
       });
@@ -84,19 +78,6 @@ function Signup() {
       <section className={styles.panel}>
         <form className={styles.form} onSubmit={handleSubmit} noValidate>
           {serverError ? <div className={styles.errorBanner}>{serverError}</div> : null}
-
-          <label className={styles.field}>
-            <span>Tenant name</span>
-            <input
-              name="tenantName"
-              type="text"
-              autoComplete="organization"
-              value={form.tenantName}
-              onChange={handleChange}
-              aria-invalid={Boolean(errors.tenantName)}
-            />
-            {errors.tenantName ? <small>{errors.tenantName}</small> : null}
-          </label>
 
           <label className={styles.field}>
             <span>Email</span>
@@ -144,11 +125,15 @@ function Signup() {
           <p className={styles.switchText}>
             Already have an account? <Link to="/login">Log in</Link>
           </p>
+
+          <p className={styles.note}>
+            Property owner and organization accounts are created by platform administrators.
+          </p>
         </form>
 
         <div className={styles.copy}>
           <p className="pill">Join StayNest</p>
-          <h1>Create an account for faster bookings</h1>
+          <h1>Create your customer account</h1>
           <p>
             Save homes, manage upcoming trips, and keep your rental activity organized from one
             dashboard.

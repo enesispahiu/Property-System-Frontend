@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createBooking } from "../services/api.js";
+import { createBooking, payBooking } from "../services/api.js";
 import styles from "./BookingForm.module.css";
 
 const initialForm = {
@@ -52,7 +52,11 @@ function BookingForm({ property }) {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState("");
+  const [createdBooking, setCreatedBooking] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState("CARD");
+  const [paymentStatus, setPaymentStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
 
   const isDemoProperty = Boolean(property?.isMock);
   const pricePerNight = Number(property?.price || 0);
@@ -67,6 +71,7 @@ function BookingForm({ property }) {
     setForm((current) => ({ ...current, [name]: value }));
     setErrors((current) => ({ ...current, [name]: "" }));
     setStatus("");
+    setPaymentStatus("");
   }
 
   async function handleSubmit(event) {
@@ -105,15 +110,34 @@ function BookingForm({ property }) {
         endDate: form.endDate,
       });
 
-      setStatus(`Booking ${booking.status || "created"} successfully.`);
+      setCreatedBooking(booking);
+      setStatus("Reservation created. Complete payment to confirm your booking.");
       setForm(initialForm);
-      window.setTimeout(() => {
-        navigate("/dashboard");
-      }, 700);
     } catch (error) {
       setStatus(`Booking failed: ${error.message || "Booking could not be created."}`);
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handlePay() {
+    if (!createdBooking?.id) {
+      return;
+    }
+
+    setIsPaying(true);
+    setPaymentStatus("");
+
+    try {
+      const result = await payBooking(createdBooking.id, paymentMethod);
+      setCreatedBooking(result.booking || createdBooking);
+      setPaymentStatus("Payment completed. Your booking is confirmed.");
+    } catch (error) {
+      setPaymentStatus(
+        `Payment failed: ${error.message || "Payment could not be completed."}`,
+      );
+    } finally {
+      setIsPaying(false);
     }
   }
 
@@ -180,12 +204,68 @@ function BookingForm({ property }) {
         {isSubmitting ? "Submitting..." : "Reserve"}
       </button>
 
+      <p className={styles.paymentNote}>
+        Reservation will be pending until payment is completed.
+      </p>
+
       {isDemoProperty ? (
         <p className={styles.status}>
           This demo property cannot be booked because it does not exist in the backend.
         </p>
       ) : status ? (
         <p className={styles.status}>{status}</p>
+      ) : null}
+
+      {createdBooking ? (
+        <section className={styles.paymentBox} aria-label="Complete payment">
+          <div>
+            <h3>Complete payment</h3>
+            <p>
+              {createdBooking.property?.title || property.title} -{" "}
+              <strong>${Number(createdBooking.totalPrice || totalPrice).toFixed(2)}</strong>
+            </p>
+            <span>Status: {createdBooking.status || "PENDING"}</span>
+          </div>
+
+          {createdBooking.status === "CONFIRMED" ? null : (
+            <>
+              <label>
+                <span>Payment method</span>
+                <select
+                  value={paymentMethod}
+                  onChange={(event) => setPaymentMethod(event.target.value)}
+                >
+                  <option value="CARD">CARD</option>
+                  <option value="CASH">CASH</option>
+                  <option value="BANK_TRANSFER">BANK_TRANSFER</option>
+                </select>
+              </label>
+
+              <button
+                className={styles.payButton}
+                type="button"
+                onClick={handlePay}
+                disabled={isPaying}
+              >
+                {isPaying ? "Processing..." : "Pay"}
+              </button>
+            </>
+          )}
+
+          {paymentStatus ? (
+            <p className={styles.paymentSuccess}>{paymentStatus}</p>
+          ) : null}
+
+          {createdBooking.status === "CONFIRMED" ? (
+            <button
+              className={styles.dashboardButton}
+              type="button"
+              onClick={() => navigate("/dashboard")}
+            >
+              Go to Dashboard
+            </button>
+          ) : null}
+        </section>
       ) : null}
     </form>
   );

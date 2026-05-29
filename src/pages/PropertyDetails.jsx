@@ -1,21 +1,29 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import BookingForm from "../components/BookingForm.jsx";
 import { propertyImages } from "../assets/propertyImages.js";
 import {
+  addFavorite,
   createReview,
+  getMyFavorites,
   getPropertyAverageRating,
   getPropertyById,
   getPropertyReviews,
+  isAuthenticated,
+  removeFavorite,
 } from "../services/api.js";
 import styles from "./PropertyDetails.module.css";
 
 function PropertyDetails() {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   const [property, setProperty] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [ratingSummary, setRatingSummary] = useState(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [favoriteStatus, setFavoriteStatus] = useState("");
   const [reviewForm, setReviewForm] = useState({ rating: "5", comment: "" });
   const [reviewStatus, setReviewStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -27,15 +35,27 @@ function PropertyDetails() {
       setError("");
 
       try {
-        const [propertyData, reviewData, averageData] = await Promise.all([
+        const [propertyData, reviewData, averageData, favoriteData] = await Promise.all([
           getPropertyById(id),
           getPropertyReviews(id).catch(() => []),
           getPropertyAverageRating(id).catch(() => null),
+          isAuthenticated() ? getMyFavorites().catch(() => []) : Promise.resolve([]),
         ]);
+
+        if (!propertyData) {
+          setError("Property not found.");
+          return;
+        }
 
         setProperty(propertyData);
         setReviews(Array.isArray(reviewData) ? reviewData : []);
         setRatingSummary(averageData);
+        setIsSaved(
+          Array.isArray(favoriteData) &&
+            favoriteData.some(
+              (favorite) => String(favorite.property?.id) === String(propertyData.id),
+            ),
+        );
       } catch (err) {
         setError(err.message || "Failed to load property");
       } finally {
@@ -49,6 +69,34 @@ function PropertyDetails() {
   async function handleCopyLink() {
     await navigator.clipboard.writeText(window.location.href);
     alert("Property link copied.");
+  }
+
+  async function handleFavoriteToggle() {
+    if (!isAuthenticated()) {
+      navigate("/login");
+      return;
+    }
+
+    setIsSaving(true);
+    setFavoriteStatus("");
+
+    try {
+      if (isSaved) {
+        await removeFavorite(property.id);
+        setIsSaved(false);
+        setFavoriteStatus("Removed from saved properties.");
+      } else {
+        await addFavorite(property.id);
+        setIsSaved(true);
+        setFavoriteStatus("Saved.");
+      }
+    } catch (favoriteError) {
+      setFavoriteStatus(
+        favoriteError.message || "Saved property could not be updated.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function updateReviewField(event) {
@@ -99,19 +147,30 @@ function PropertyDetails() {
     return <div className={styles.state}>Property not found</div>;
   }
 
-  const image = property.image || property.images?.[0]?.url || propertyImages.fallback;
+  const propertyReviews = Array.isArray(property.reviews) ? property.reviews : [];
+  const pageReviews = Array.isArray(reviews) ? reviews : [];
+  const propertyAmenities = Array.isArray(property.amenities)
+    ? property.amenities
+    : [];
+  const image =
+    property.imageUrl ||
+    property.images?.[0]?.url ||
+    property.images?.[0]?.imageUrl ||
+    property.image ||
+    propertyImages.fallback;
   const reviewCount =
     ratingSummary?.totalReviews ||
     property.totalReviews ||
-    (Array.isArray(property.reviews) ? property.reviews.length : reviews.length);
+    propertyReviews.length ||
+    pageReviews.length;
   const rating =
     ratingSummary?.averageRating ||
     property.averageRating ||
     property.rating ||
-    (reviews.length
+    (pageReviews.length
       ? (
-          reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
-          reviews.length
+          pageReviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
+          pageReviews.length
         ).toFixed(1)
       : "No ratings");
 
@@ -160,6 +219,17 @@ function PropertyDetails() {
           <button className={styles.shareButton} onClick={handleCopyLink}>
             Share property
           </button>
+          <button
+            className={isSaved ? styles.savedButton : styles.saveButton}
+            onClick={handleFavoriteToggle}
+            disabled={isSaving}
+            type="button"
+          >
+            {isSaving ? "Saving..." : isSaved ? "Saved" : "Save"}
+          </button>
+          {favoriteStatus ? (
+            <p className={styles.favoriteStatus}>{favoriteStatus}</p>
+          ) : null}
         </div>
       </section>
 
@@ -171,13 +241,18 @@ function PropertyDetails() {
       <section className={styles.section}>
         <h2>Amenities</h2>
 
-        {property.amenities?.length ? (
+        {propertyAmenities.length ? (
           <ul className={styles.amenities}>
-            {property.amenities.map((amenity, index) => (
-              <li key={amenity.id || amenity.name || index}>
-                {amenity.name || amenity.amenity?.name || amenity}
-              </li>
-            ))}
+            {propertyAmenities.map((amenity, index) => {
+              const amenityLabel =
+                amenity?.name || amenity?.amenity?.name || "Amenity";
+
+              return (
+                <li key={amenity?.id || amenityLabel || index}>
+                  {amenityLabel}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p>No amenities listed for this property.</p>
@@ -192,11 +267,11 @@ function PropertyDetails() {
       <section className={styles.section}>
         <h2>Reviews</h2>
 
-        {reviews.length === 0 ? (
+        {pageReviews.length === 0 ? (
           <p>No reviews yet.</p>
         ) : (
           <div className={styles.reviews}>
-            {reviews.map((review) => (
+            {pageReviews.map((review) => (
               <article
                 key={review.id || `${review.rating}-${review.comment}`}
                 className={styles.review}

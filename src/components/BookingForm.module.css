@@ -23,7 +23,8 @@
 }
 
 .price span,
-.status {
+.status,
+.paymentNote {
   color: #64748b;
 }
 
@@ -41,7 +42,8 @@
   font-weight: 800;
 }
 
-.form input {
+.form input,
+.form select {
   width: 100%;
   min-height: 44px;
   border: 1px solid #dbe3ef;
@@ -85,9 +87,68 @@
   opacity: 0.66;
 }
 
+.paymentBox {
+  display: grid;
+  gap: 14px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
+}
+
+.paymentBox h3,
+.paymentBox p {
+  margin: 0;
+}
+
+.paymentBox h3 {
+  color: #111827;
+  font-size: 1.05rem;
+}
+
+.paymentBox span {
+  color: #64748b;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.payButton,
+.dashboardButton {
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.payButton {
+  background: #0f766e;
+}
+
+.dashboardButton {
+  background: #111827;
+}
+
+.payButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.66;
+}
+
+.paymentSuccess {
+  margin: 0;
+  color: #0f766e;
+  font-weight: 850;
+}
+
 .status {
   margin: 0;
   font-size: 0.92rem;
+  font-weight: 750;
+}
+
+.paymentNote {
+  margin: -4px 0 0;
+  font-size: 0.9rem;
   font-weight: 750;
 }
 
