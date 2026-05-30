@@ -46,7 +46,6 @@ function Footer() {
             StayNest
           </Link>
           <p>Find stays, cabins, villas, and city apartments across Kosovo and beyond.</p>
-          <small>Demo platform for Distributed Systems 2025/26.</small>
         </div>
 
         <div className={styles.columns}>
@@ -73,10 +72,10 @@ function Footer() {
         </div>
 
         <div className={styles.bottom}>
-          <span>© 2026 Property Rental System</span>
+          <span>Copyright 2026 Property Rental System</span>
           <span>Language: English</span>
           <span>Currency: EUR</span>
-          <span>Instagram · Facebook · LinkedIn</span>
+          <span>Instagram | Facebook | LinkedIn</span>
         </div>
       </div>
     </footer>
