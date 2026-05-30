@@ -117,6 +117,11 @@ function PropertyDetails() {
     event.preventDefault();
     setReviewStatus("");
 
+    if (!user) {
+      setReviewStatus("Please log in or sign up to review this property.");
+      return;
+    }
+
     if (!reviewForm.comment.trim()) {
       setReviewStatus("Please add a short comment before posting your review.");
       return;
@@ -160,6 +165,10 @@ function PropertyDetails() {
   const propertyAmenities = Array.isArray(property.amenities)
     ? property.amenities
     : [];
+  const blockedDates = Array.isArray(property.availability)
+    ? property.availability
+    : [];
+  const cancellationPolicy = property.cancellationPolicy;
   const image =
     property.imageUrl ||
     property.images?.[0]?.url ||
@@ -229,29 +238,31 @@ function PropertyDetails() {
             </div>
           </div>
 
-          <button className={styles.shareButton} onClick={handleCopyLink}>
-            Share property
-          </button>
-          {canUseCustomerActions ? (
-            <>
-              <button
-                className={isSaved ? styles.savedButton : styles.saveButton}
-                onClick={handleFavoriteToggle}
-                disabled={isSaving}
-                type="button"
-              >
-                {isSaving ? "Saving..." : isSaved ? "Saved" : "Save"}
-              </button>
-              {favoriteStatus ? (
-                <p className={styles.favoriteStatus}>{favoriteStatus}</p>
-              ) : null}
-            </>
-          ) : null}
-          {!user ? (
-            <Link to="/login" className={styles.saveButton}>
-              Login to save or book
-            </Link>
-          ) : null}
+          <div className={styles.summaryActions}>
+            <button className={styles.shareButton} onClick={handleCopyLink}>
+              Share property
+            </button>
+            {canUseCustomerActions ? (
+              <>
+                <button
+                  className={isSaved ? styles.savedButton : styles.saveButton}
+                  onClick={handleFavoriteToggle}
+                  disabled={isSaving}
+                  type="button"
+                >
+                  {isSaving ? "Saving..." : isSaved ? "Saved" : "Save"}
+                </button>
+                {favoriteStatus ? (
+                  <p className={styles.favoriteStatus}>{favoriteStatus}</p>
+                ) : null}
+              </>
+            ) : null}
+            {!user ? (
+              <Link to="/login" className={styles.loginPromptButton}>
+                Login to save or book
+              </Link>
+            ) : null}
+          </div>
           {isAdminPreview ? (
             <p className={styles.previewNotice}>
               Preview mode: customer booking and favorite actions are hidden.
@@ -292,14 +303,55 @@ function PropertyDetails() {
       </section>
 
       <section className={styles.section}>
+        <h2>Unavailable dates</h2>
+        {blockedDates.length ? (
+          <ul className={styles.blockedDates}>
+            {blockedDates.map((block) => (
+              <li key={block.id}>
+                <strong>
+                  {new Date(block.startDate).toLocaleDateString()} to{" "}
+                  {new Date(block.endDate).toLocaleDateString()}
+                </strong>
+                {block.reason ? <span>{block.reason}</span> : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No blocked date ranges are currently listed.</p>
+        )}
+      </section>
+
+      <section className={styles.section}>
+        <h2>Cancellation Policy</h2>
+        {cancellationPolicy ? (
+          <div className={styles.policyBox}>
+            <strong>{cancellationPolicy.name}</strong>
+            <p>{cancellationPolicy.description}</p>
+            <span>
+              Refund: {cancellationPolicy.refundPercent}% until{" "}
+              {cancellationPolicy.freeCancellationHours} hours before check-in
+            </span>
+          </div>
+        ) : (
+          <p>No cancellation policy listed for this property.</p>
+        )}
+      </section>
+
+      <section className={styles.section}>
         <h2>Reserve this stay</h2>
         {canUseCustomerActions ? (
           <BookingForm property={property} />
         ) : !user ? (
-          <p>
-            Please <Link to="/login">login</Link> with a customer account to reserve
-            this stay.
-          </p>
+          <>
+            <BookingForm
+              property={property}
+              authPrompt="Please log in or sign up to reserve this property."
+            />
+            <p className={styles.authPrompt}>
+              <Link to="/login">Login</Link> or <Link to="/signup">sign up</Link> to
+              reserve this property.
+            </p>
+          </>
         ) : (
           <p>Booking is available only for customer accounts.</p>
         )}
@@ -324,7 +376,7 @@ function PropertyDetails() {
           </div>
         )}
 
-        {canUseCustomerActions ? (
+        {canUseCustomerActions || !user ? (
           <form className={styles.reviewForm} onSubmit={handleReviewSubmit}>
             <label>
               Rating
@@ -354,14 +406,15 @@ function PropertyDetails() {
             </button>
             {reviewStatus ? <p className={styles.reviewStatus}>{reviewStatus}</p> : null}
           </form>
-        ) : !user ? (
-          <p>
-            Please <Link to="/login">login</Link> with a customer account to leave a
-            review.
-          </p>
         ) : (
           <p>Reviews can be posted only from customer accounts.</p>
         )}
+        {!user ? (
+          <p className={styles.authPrompt}>
+            <Link to="/login">Login</Link> or <Link to="/signup">sign up</Link> to
+            post a review.
+          </p>
+        ) : null}
       </section>
     </main>
   );

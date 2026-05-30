@@ -71,10 +71,19 @@
   margin-bottom: 18px;
 }
 
+.formSurface {
+  scroll-margin-top: 90px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0;
+  margin-bottom: 18px;
+}
+
 .editMode {
   border-color: #93c5fd;
   background: #f8fbff;
   box-shadow: 0 18px 44px rgba(37, 99, 235, 0.14);
+  padding: 16px;
 }
 
 .panelHeader,
@@ -97,6 +106,25 @@
 .panelHeader h2 {
   margin: 0;
   color: #111827;
+}
+
+.panelEyebrow {
+  margin: 0 0 5px;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.insightPanel {
+  border-color: #dbeafe;
+  background: #fbfdff;
+}
+
+.insightCopy {
+  margin: -8px 0 16px;
+  color: #64748b;
+  font-weight: 750;
 }
 
 .panelActions {
@@ -183,6 +211,41 @@
   color: #64748b;
 }
 
+.inlineManager {
+  margin-top: 10px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 10px;
+}
+
+.inlineManager span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.inlineManager span button {
+  min-height: 30px;
+  padding: 0 10px;
+  color: #be123c;
+}
+
+.inlineForm {
+  display: grid;
+  grid-template-columns: 145px 145px minmax(160px, 1fr) auto;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.inlineForm input {
+  width: 100%;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  padding: 9px 10px;
+}
+
 .row .statusBadge {
   color: #0f766e;
   background: #f0fdfa;
@@ -194,6 +257,52 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 18px;
+}
+
+.tenantForm {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: #475569;
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.field span {
+  line-height: 1.2;
+}
+
+.field input,
+.field select {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.colorField {
+  grid-column: span 2;
+}
+
+.colorControl {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.form .colorPicker {
+  width: 58px;
+  min-height: 45px;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.hexInput {
+  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .form textarea {
@@ -209,6 +318,7 @@
 }
 
 .form input,
+.form select,
 .form textarea,
 .panelHeader select,
 .row select {
@@ -218,6 +328,11 @@
   background: #ffffff;
   color: #111827;
   padding: 11px 12px;
+}
+
+.form input.colorPicker {
+  width: 58px;
+  padding: 4px;
 }
 
 .panel button,
@@ -258,21 +373,18 @@
 .aiAnalysis,
 .aiPending {
   display: grid;
-  gap: 6px;
-  width: fit-content;
-  max-width: 100%;
-  border: 1px solid #ccfbf1;
-  border-radius: 8px;
-  background: #f0fdfa;
-  color: #0f766e;
-  padding: 10px 12px;
+  gap: 4px;
+  margin-top: 10px;
+  color: #475569;
+  font-weight: 800;
 }
 
-.aiAnalysis strong,
-.aiAnalysis span,
-.aiPending {
-  color: #0f766e;
-  font-weight: 850;
+.aiAnalysis p {
+  margin: 0;
+}
+
+.aiAnalysis strong {
+  color: #111827;
 }
 
 .aiPending {
@@ -306,6 +418,16 @@
   }
 
   .form {
+    grid-template-columns: 1fr;
+  }
+
+  .tenantForm,
+  .colorField {
+    grid-template-columns: 1fr;
+    grid-column: auto;
+  }
+
+  .inlineForm {
     grid-template-columns: 1fr;
   }
 

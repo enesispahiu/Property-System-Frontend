@@ -40,14 +40,14 @@ function validateBooking(form) {
     errors.endDate = "Check-out must be after check-in.";
   }
 
-  if (Number(form.guests) < 1) {
+  if (!Number.isFinite(Number(form.guests)) || Number(form.guests) < 1) {
     errors.guests = "At least one guest is required.";
   }
 
   return errors;
 }
 
-function BookingForm({ property }) {
+function BookingForm({ property, authPrompt = "" }) {
   const navigate = useNavigate();
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
@@ -59,6 +59,7 @@ function BookingForm({ property }) {
   const [isPaying, setIsPaying] = useState(false);
 
   const isDemoProperty = Boolean(property?.isMock);
+  const maxGuests = Number(property?.guests || 0);
   const pricePerNight = Number(property?.price || 0);
   const nights = useMemo(
     () => getNights(form.startDate, form.endDate),
@@ -74,6 +75,19 @@ function BookingForm({ property }) {
     setPaymentStatus("");
   }
 
+  function updateGuestCount(change) {
+    setForm((current) => {
+      const currentGuests = Number(current.guests) || 1;
+      const nextGuests = Math.max(1, currentGuests + change);
+      const limitedGuests = maxGuests ? Math.min(nextGuests, maxGuests) : nextGuests;
+
+      return { ...current, guests: String(limitedGuests) };
+    });
+    setErrors((current) => ({ ...current, guests: "" }));
+    setStatus("");
+    setPaymentStatus("");
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -81,6 +95,11 @@ function BookingForm({ property }) {
       setStatus(
         "This demo property cannot be booked because it does not exist in the backend.",
       );
+      return;
+    }
+
+    if (authPrompt) {
+      setStatus(authPrompt);
       return;
     }
 
@@ -108,10 +127,11 @@ function BookingForm({ property }) {
         propertyId,
         startDate: form.startDate,
         endDate: form.endDate,
+        guestCount: Number(form.guests),
       });
 
       setCreatedBooking(booking);
-      setStatus("Reservation created. Complete payment to confirm your booking.");
+      setStatus("");
       setForm(initialForm);
     } catch (error) {
       setStatus(`Booking failed: ${error.message || "Booking could not be created."}`);
@@ -130,7 +150,7 @@ function BookingForm({ property }) {
 
     try {
       const result = await payBooking(createdBooking.id, paymentMethod);
-      setCreatedBooking(result.booking || createdBooking);
+      setCreatedBooking(result.booking || { ...createdBooking, status: "CONFIRMED" });
       setPaymentStatus("Payment completed. Your booking is confirmed.");
     } catch (error) {
       setPaymentStatus(
@@ -180,14 +200,33 @@ function BookingForm({ property }) {
 
       <label>
         <span>Guests</span>
-        <input
-          name="guests"
-          type="number"
-          min="1"
-          value={form.guests}
-          onChange={updateField}
-          aria-invalid={Boolean(errors.guests)}
-        />
+        <div className={styles.guestControl}>
+          <button
+            type="button"
+            onClick={() => updateGuestCount(-1)}
+            disabled={Number(form.guests) <= 1}
+            aria-label="Decrease guest count"
+          >
+            -
+          </button>
+          <input
+            name="guests"
+            type="number"
+            min="1"
+            max={maxGuests || undefined}
+            value={form.guests}
+            onChange={updateField}
+            aria-invalid={Boolean(errors.guests)}
+          />
+          <button
+            type="button"
+            onClick={() => updateGuestCount(1)}
+            disabled={Boolean(maxGuests) && Number(form.guests) >= maxGuests}
+            aria-label="Increase guest count"
+          >
+            +
+          </button>
+        </div>
         {errors.guests ? <small>{errors.guests}</small> : null}
       </label>
 
@@ -204,9 +243,9 @@ function BookingForm({ property }) {
         {isSubmitting ? "Submitting..." : "Reserve"}
       </button>
 
-      <p className={styles.paymentNote}>
-        Reservation will be pending until payment is completed.
-      </p>
+      {authPrompt && !status ? (
+        <p className={styles.authNote}>Login or sign up to reserve this property.</p>
+      ) : null}
 
       {isDemoProperty ? (
         <p className={styles.status}>
@@ -229,6 +268,9 @@ function BookingForm({ property }) {
 
           {createdBooking.status === "CONFIRMED" ? null : (
             <>
+              <p className={styles.paymentNote}>
+                Reservation will be pending until payment is completed.
+              </p>
               <label>
                 <span>Payment method</span>
                 <select

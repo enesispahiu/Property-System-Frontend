@@ -203,7 +203,7 @@ async function request(path, options = {}) {
       clearAuthTokens();
       error.message = "Unauthorized, please login again.";
 
-      if (window.location.pathname !== "/login") {
+      if (path !== "/auth/me" && window.location.pathname !== "/login") {
         window.location.assign("/login");
       }
     }
@@ -526,17 +526,30 @@ export async function createProperty(payload) {
       description: payload.description,
       location: payload.location,
       price: Number(payload.price),
+      ...(payload.cancellationPolicyId
+        ? { cancellationPolicyId: Number(payload.cancellationPolicyId) }
+        : {}),
       ...(payload.status ? { status: payload.status } : {}),
     }),
   });
 }
 
+export async function getSearchHistory() {
+  const result = await request("/search/history");
+  return Array.isArray(result) ? result : [];
+}
+
 export async function updateProperty(id, payload) {
+  const { cancellationPolicyId, ...rest } = payload;
+
   return request(`/properties/${id}`, {
     method: "PATCH",
     body: JSON.stringify({
-      ...payload,
+      ...rest,
       ...(payload.price !== undefined ? { price: Number(payload.price) } : {}),
+      ...(cancellationPolicyId
+        ? { cancellationPolicyId: Number(cancellationPolicyId) }
+        : {}),
     }),
   });
 }
@@ -555,6 +568,49 @@ export async function reactivateProperty(id) {
   );
 }
 
+export async function getPropertyAvailability(propertyId) {
+  const result = await request(`/properties/${Number(propertyId)}/availability`);
+  return Array.isArray(result) ? result : [];
+}
+
+export async function createPropertyAvailability(propertyId, payload) {
+  return request(`/properties/${Number(propertyId)}/availability`, {
+    method: "POST",
+    body: JSON.stringify({
+      startDate: payload.startDate,
+      endDate: payload.endDate,
+      reason: payload.reason || undefined,
+    }),
+  });
+}
+
+export async function deleteAvailability(id) {
+  return request(`/availability/${Number(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getCancellationPolicies() {
+  const result = await request("/properties/cancellation-policies");
+  return Array.isArray(result) ? result : [];
+}
+
+export async function createPropertyRule(propertyId, payload) {
+  return request(`/properties/${Number(propertyId)}/rules`, {
+    method: "POST",
+    body: JSON.stringify({
+      title: payload.title,
+      description: payload.description || undefined,
+    }),
+  });
+}
+
+export async function deletePropertyRule(ruleId) {
+  return request(`/properties/rules/${Number(ruleId)}`, {
+    method: "DELETE",
+  });
+}
+
 export async function createBooking(payload) {
   return request("/bookings", {
     method: "POST",
@@ -562,6 +618,8 @@ export async function createBooking(payload) {
       propertyId: Number(payload.propertyId),
       startDate: payload.startDate,
       endDate: payload.endDate,
+      guestCount: Number(payload.guestCount || 1),
+      guests: Array.isArray(payload.guests) ? payload.guests : undefined,
     }),
   });
 }
@@ -709,6 +767,32 @@ export async function payBooking(bookingId, method) {
       ? normalizeBooking(result.booking)
       : result?.booking,
   };
+}
+
+export async function getBookingInvoice(bookingId) {
+  return request(`/bookings/${Number(bookingId)}/invoice`);
+}
+
+export async function getMyInvoices() {
+  const result = await request("/invoices/me");
+  return Array.isArray(result) ? result : [];
+}
+
+export async function getMyNotifications() {
+  const result = await request("/notifications/me");
+  return Array.isArray(result) ? result : [];
+}
+
+export async function markNotificationRead(id) {
+  return request(`/notifications/${Number(id)}/read`, {
+    method: "PATCH",
+  });
+}
+
+export async function markAllNotificationsRead() {
+  return request("/notifications/read-all", {
+    method: "PATCH",
+  });
 }
 
 export async function getPropertyReviews(propertyId) {
@@ -861,7 +945,10 @@ function normalizeBooking(booking) {
     payments: sortedPayments,
     paymentStatus: paidPayment?.status || latestPayment?.status || "UNPAID",
     paymentMethod: paidPayment?.method || latestPayment?.method || "",
+    invoice: booking.invoice || null,
     totalPrice: Number(booking.totalPrice || booking.total_price || 0),
+    guestCount: Number(booking.guestCount || booking.guest_count || 1),
+    guests: Array.isArray(booking.guests) ? booking.guests : [],
     startDate: booking.startDate || booking.start_date,
     endDate: booking.endDate || booking.end_date,
     status: booking.status || "PENDING",

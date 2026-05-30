@@ -27,12 +27,16 @@ Keep the real `.env` local and out of commits.
 - `/login` login form
 - `/signup` registration form
 - `/properties/:id` public property details, booking form, and reviews
-- `/dashboard` authenticated user bookings
-- `/admin` admin-only management panel
+- `/properties/:id` also shows blocked availability ranges, cancellation policy, and house rules
+- `/my-bookings` customer bookings, payment actions, guest details, and invoice viewing
+- `/notifications` logged-in user notifications with mark-read actions
+- `/dashboard` authenticated dashboard entry
+- `/admin`, `/business/operations`, `/business/reviews` tenant admin management panel
+- `/platform/tenant-management` SuperAdmin tenant management and search history
 
 ## API Integration
 
-The frontend calls the backend endpoints in `src/services/api.js`, including auth, public search, property details, bookings, and reviews. Auth state is shared through `src/context/AuthContext.jsx`.
+The frontend calls the backend endpoints in `src/services/api.js`, including auth, public search, property details, bookings, booking guests, availability blocks, property rules, cancellation policies, invoices, notifications, payments, favorites, and reviews. Auth state is shared through `src/context/AuthContext.jsx`.
 
 The AI assistant UI calls the backend AI endpoint. It depends on the backend running and the backend being able to reach a local Ollama server, for example with `OLLAMA_BASE_URL=http://localhost:11434` and the `llama3.2` model pulled locally.
 
@@ -41,6 +45,10 @@ The AI assistant UI calls the backend AI endpoint. It depends on the backend run
 ```bash
 npm run build
 ```
+
+## CI/CD Status
+
+Frontend CI is defined in `.github/workflows/ci.yml`. It installs dependencies and runs the production Vite build. No real frontend deployment pipeline is currently implemented in this repository; deployment remains future work.
 
 ## Collaboration Workflow
 

@@ -73,11 +73,48 @@
 }
 
 .stats article,
-.card {
+.card,
+.invoice {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #ffffff;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+}
+
+.invoice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding: 18px;
+  scroll-margin-top: 96px;
+}
+
+.invoice h2,
+.invoice p {
+  margin: 0 0 6px;
+}
+
+.invoice div {
+  display: grid;
+  gap: 4px;
+}
+
+.invoice span {
+  color: #64748b;
+  font-weight: 800;
+}
+
+.invoice button {
+  min-height: 38px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  padding: 0 14px;
+  background: #ffffff;
+  color: #2563eb;
+  font: inherit;
+  font-weight: 850;
 }
 
 .stats article {
@@ -199,10 +236,6 @@
   color: #1d4ed8;
 }
 
-.cancelledCard {
-  opacity: 0.78;
-}
-
 .actions a,
 .actions button,
 .empty a,
@@ -226,6 +259,12 @@
 
 .actions button {
   color: #be123c;
+}
+
+.actions .receiptButton {
+  border-color: #e5e7eb;
+  background: #f8fafc;
+  color: #475569;
 }
 
 .payment select {

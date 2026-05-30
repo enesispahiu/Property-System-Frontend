@@ -1,0 +1,153 @@
+.page {
+  width: min(900px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 52px 0 76px;
+}
+
+.heading {
+  margin-bottom: 22px;
+}
+
+.heading h1,
+.heading p,
+.card p {
+  margin: 0;
+}
+
+.heading h1 {
+  margin: 12px 0 10px;
+  color: #111827;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  line-height: 1;
+}
+
+.heading p,
+.card p,
+.card span {
+  color: #64748b;
+}
+
+.eyebrow {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 850;
+}
+
+.status,
+.empty,
+.state {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 18px;
+  background: #ffffff;
+  color: #64748b;
+  font-weight: 800;
+}
+
+.status {
+  margin-bottom: 18px;
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.state {
+  width: min(760px, calc(100% - 40px));
+  margin: 72px auto;
+  text-align: center;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.actions button,
+.card button {
+  min-height: 38px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  padding: 0 14px;
+  background: #ffffff;
+  color: #2563eb;
+  font: inherit;
+  font-weight: 850;
+}
+
+.actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.card div {
+  display: grid;
+  gap: 5px;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.category {
+  width: fit-content;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #ffffff;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.card strong {
+  color: #111827;
+}
+
+.unread {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.read {
+  opacity: 0.78;
+}
+
+.readLabel {
+  font-weight: 850;
+}
+
+@media (max-width: 620px) {
+  .page {
+    width: min(100% - 28px, 680px);
+  }
+
+  .card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

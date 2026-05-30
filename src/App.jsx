@@ -10,6 +10,8 @@ import Login from './pages/Login.jsx';
 import Signup from './pages/Signup.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
 import PlatformPanel from './pages/PlatformPanel.jsx';
+import SearchAnalytics from './pages/SearchAnalytics.jsx';
+import Notifications from './pages/Notifications.jsx';
 import AiAssistantButton from './components/AiAssistantButton.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Footer from './components/Footer.jsx';
@@ -73,6 +75,14 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin"
           element={
             <ProtectedRoute allowedRoles={['TENANT_ADMIN']}>
@@ -117,6 +127,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
               <PlatformPanel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/platform/search-analytics"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+              <SearchAnalytics />
             </ProtectedRoute>
           }
         />
