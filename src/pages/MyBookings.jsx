@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { propertyImages } from "../assets/propertyImages.js";
 import {
   cancelBooking,
   getCurrentUser,
+  getBookingInvoice,
   getPropertyImageUrl,
   getUserBookings,
   payBooking,
@@ -87,6 +88,8 @@ function MyBookings() {
   const [payingAction, setPayingAction] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState("");
+  const [invoice, setInvoice] = useState(null);
+  const invoiceRef = useRef(null);
 
   async function loadBookings() {
     setIsLoading(true);
@@ -155,6 +158,22 @@ function MyBookings() {
     }
   }
 
+  async function handleViewInvoice(bookingId) {
+    setStatus("");
+
+    try {
+      setInvoice(await getBookingInvoice(bookingId));
+      requestAnimationFrame(() => {
+        invoiceRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    } catch (error) {
+      setStatus(error.message || "Unable to load invoice.");
+    }
+  }
+
   if (isLoading) {
     return <main className={styles.state}>Loading bookings...</main>;
   }
@@ -171,6 +190,25 @@ function MyBookings() {
       </section>
 
       {status ? <div className={styles.status}>{status}</div> : null}
+
+      {invoice ? (
+        <section ref={invoiceRef} className={styles.invoice}>
+          <div>
+            <h2>Invoice {invoice.invoiceNumber}</h2>
+            <p>
+              {invoice.booking?.property?.title || "Property"} -{" "}
+              {formatDate(invoice.booking?.startDate)} to{" "}
+              {formatDate(invoice.booking?.endDate)}
+            </p>
+            <span>Status: {formatStatus(invoice.status)}</span>
+            <span>Payment: {formatStatus(invoice.payment?.method || "-")}</span>
+            <strong>{money(invoice.totalAmount)}</strong>
+          </div>
+          <button type="button" onClick={() => setInvoice(null)}>
+            Close
+          </button>
+        </section>
+      ) : null}
 
       <section className={styles.stats}>
         <article>
@@ -204,6 +242,12 @@ function MyBookings() {
             const bookingStatus = booking.status || "PENDING";
             const canPay = canPayBooking(booking);
             const canCancel = canCancelBooking(booking);
+            const hasPaidInvoice =
+              Boolean(booking.invoice) || booking.paymentStatus === "PAID";
+            const showPrimaryInvoice =
+              bookingStatus === "CONFIRMED" && hasPaidInvoice;
+            const showReceipt =
+              bookingStatus === "CANCELLED" && hasPaidInvoice;
 
             return (
               <article
@@ -245,6 +289,18 @@ function MyBookings() {
                     {booking.paymentMethod ? (
                       <small>Payment Method: {formatStatus(booking.paymentMethod)}</small>
                     ) : null}
+                    <small>
+                      Guests:{" "}
+                      {Array.isArray(booking.guests) && booking.guests.length
+                        ? booking.guests
+                            .map((guest) =>
+                              [guest.firstName, guest.lastName]
+                                .filter((part) => part && part !== "-")
+                                .join(" "),
+                            )
+                            .join(", ")
+                        : booking.guestCount || 1}
+                    </small>
                   </div>
 
                   <div className={styles.actions}>
@@ -254,6 +310,23 @@ function MyBookings() {
                     {canCancel ? (
                       <button type="button" onClick={() => handleCancel(booking.id)}>
                         Cancel booking
+                      </button>
+                    ) : null}
+                    {showPrimaryInvoice ? (
+                      <button
+                        type="button"
+                        onClick={() => handleViewInvoice(booking.id)}
+                      >
+                        View invoice
+                      </button>
+                    ) : null}
+                    {showReceipt ? (
+                      <button
+                        className={styles.receiptButton}
+                        type="button"
+                        onClick={() => handleViewInvoice(booking.id)}
+                      >
+                        View receipt
                       </button>
                     ) : null}
                   </div>

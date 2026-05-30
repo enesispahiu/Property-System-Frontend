@@ -3,12 +3,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   cancelBooking,
   createProperty,
+  createPropertyAvailability,
   deleteBooking,
+  deleteAvailability,
   deleteProperty,
   deleteReview,
   deleteUser,
   getBookings,
   getAdminProperties,
+  getCancellationPolicies,
   getCurrentUser,
   getPropertyReviews,
   getUsers,
@@ -32,6 +35,7 @@ const initialPropertyForm = {
   description: "",
   location: "",
   price: "",
+  cancellationPolicyId: "",
 };
 
 const initialTenantForm = {
@@ -45,7 +49,7 @@ const initialTenantForm = {
 const initialTenantAdminForm = {
   tenantId: "",
   email: "",
-  password: "12345678",
+  password: "",
 };
 
 function formatDate(value) {
@@ -70,6 +74,8 @@ function AdminPanel() {
   const [tenants, setTenants] = useState([]);
   const [selectedReviewPropertyId, setSelectedReviewPropertyId] = useState("");
   const [propertyForm, setPropertyForm] = useState(initialPropertyForm);
+  const [availabilityForms, setAvailabilityForms] = useState({});
+  const [cancellationPolicies, setCancellationPolicies] = useState([]);
   const [tenantForm, setTenantForm] = useState(initialTenantForm);
   const [tenantAdminForm, setTenantAdminForm] = useState(
     initialTenantAdminForm,
@@ -136,7 +142,8 @@ function AdminPanel() {
         return;
       }
 
-      const [usersData, propertiesData, bookingsData] = await Promise.all([
+      const [usersData, propertiesData, bookingsData, policiesData] =
+        await Promise.all([
         getUsers().catch(() => []),
         getAdminProperties().catch((requestError) => {
           if (requestError.status === 403) {
@@ -146,11 +153,15 @@ function AdminPanel() {
           return [];
         }),
         getBookings().catch(() => []),
+        getCancellationPolicies().catch(() => []),
       ]);
 
       setUsers(Array.isArray(usersData) ? usersData : []);
       setProperties(Array.isArray(propertiesData) ? propertiesData : []);
       setBookings(Array.isArray(bookingsData) ? bookingsData : []);
+      setCancellationPolicies(
+        Array.isArray(policiesData) ? policiesData : [],
+      );
 
       const nextReviewPropertyId =
         selectedReviewPropertyId ||
@@ -228,6 +239,48 @@ function AdminPanel() {
     setPropertyForm((current) => ({ ...current, [name]: value }));
   }
 
+  function updateAvailabilityField(propertyId, field, value) {
+    setAvailabilityForms((current) => ({
+      ...current,
+      [propertyId]: {
+        startDate: "",
+        endDate: "",
+        reason: "",
+        ...(current[propertyId] || {}),
+        [field]: value,
+      },
+    }));
+  }
+
+  async function handleAddAvailability(propertyId) {
+    setStatus("");
+    const form = availabilityForms[propertyId] || {};
+
+    try {
+      await createPropertyAvailability(propertyId, form);
+      setAvailabilityForms((current) => ({
+        ...current,
+        [propertyId]: { startDate: "", endDate: "", reason: "" },
+      }));
+      setStatus("Blocked date range added.");
+      await loadAdminData(user);
+    } catch (requestError) {
+      setStatus(requestError.message || "Unable to block dates.");
+    }
+  }
+
+  async function handleRemoveAvailability(id) {
+    setStatus("");
+
+    try {
+      await deleteAvailability(id);
+      setStatus("Blocked date range removed.");
+      await loadAdminData(user);
+    } catch (requestError) {
+      setStatus(requestError.message || "Unable to remove blocked dates.");
+    }
+  }
+
   function updateTenantField(event) {
     const { name, value } = event.target;
     setTenantForm((current) => ({ ...current, [name]: value }));
@@ -273,12 +326,17 @@ function AdminPanel() {
       description: property.description || "",
       location: property.location || "",
       price: String(property.price || ""),
+      cancellationPolicyId: property.cancellationPolicyId
+        ? String(property.cancellationPolicyId)
+        : "",
     });
     setStatus(`Editing property #${property.id}: ${property.title}`);
     window.setTimeout(() => {
-      propertyFormRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
+      window.requestAnimationFrame(() => {
+        propertyFormRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       });
     }, 0);
   }
@@ -472,6 +530,11 @@ function AdminPanel() {
     event.preventDefault();
     setStatus("");
 
+    if (!tenantAdminForm.password) {
+      setStatus("Password is required.");
+      return;
+    }
+
     try {
       await createTenantAdmin(tenantAdminForm.tenantId, {
         email: tenantAdminForm.email,
@@ -542,14 +605,15 @@ function AdminPanel() {
       <main className={styles.page}>
         <section className={styles.heading}>
           <p className={styles.eyebrow}>Platform</p>
-          <h1>Tenant Management</h1>
+          <h1>Platform Administration</h1>
           <p>
-            Signed in as <strong>{user.email}</strong>. Manage tenants, tenant
-            lifecycle, and tenant admin accounts from one place.
+            Signed in as <strong>{user.email}</strong>. Manage platform
+            tenants, tenant lifecycle, and tenant admin accounts from one
+            place.
           </p>
         </section>
 
-        <nav className={styles.sectionNav} aria-label="Tenant management sections">
+        <nav className={styles.sectionNav} aria-label="Platform administration sections">
           <a href="#tenants">Tenants</a>
           <a href="#create-tenant">Create Tenant</a>
           <a href="#tenant-admins">Create Tenant Admin</a>
@@ -573,38 +637,73 @@ function AdminPanel() {
               Editing tenant: {editingTenant?.name || tenantForm.name}
             </div>
           ) : null}
-          <form className={styles.form} onSubmit={handleSaveTenant}>
-            <input
-              name="name"
-              placeholder="Tenant name"
-              value={tenantForm.name}
-              onChange={updateTenantField}
-              required
-            />
-            <input
-              name="slug"
-              placeholder="tenant-slug"
-              value={tenantForm.slug}
-              onChange={updateTenantField}
-            />
-            <input
-              name="domain"
-              placeholder="Domain"
-              value={tenantForm.domain}
-              onChange={updateTenantField}
-            />
-            <input
-              name="logoUrl"
-              placeholder="Logo URL"
-              value={tenantForm.logoUrl}
-              onChange={updateTenantField}
-            />
-            <input
-              name="primaryColor"
-              placeholder="#ff385c"
-              value={tenantForm.primaryColor}
-              onChange={updateTenantField}
-            />
+          <form className={`${styles.form} ${styles.tenantForm}`} onSubmit={handleSaveTenant}>
+            <label className={styles.field}>
+              <span>Tenant name</span>
+              <input
+                name="name"
+                placeholder="Tenant name"
+                value={tenantForm.name}
+                onChange={updateTenantField}
+                required
+              />
+            </label>
+            <label className={styles.field}>
+              <span>Tenant slug</span>
+              <input
+                name="slug"
+                placeholder="tenant-slug"
+                value={tenantForm.slug}
+                onChange={updateTenantField}
+              />
+            </label>
+            <label className={styles.field}>
+              <span>Domain</span>
+              <input
+                name="domain"
+                placeholder="example.com"
+                value={tenantForm.domain}
+                onChange={updateTenantField}
+              />
+            </label>
+            <label className={styles.field}>
+              <span>Logo URL</span>
+              <input
+                name="logoUrl"
+                placeholder="https://example.com/logo.png"
+                value={tenantForm.logoUrl}
+                onChange={updateTenantField}
+              />
+            </label>
+            <label className={`${styles.field} ${styles.colorField}`}>
+              <span>Primary color</span>
+              <div className={styles.colorControl}>
+                <input
+                  className={styles.colorPicker}
+                  type="color"
+                  aria-label="Primary color picker"
+                  value={
+                    /^#[0-9A-Fa-f]{6}$/.test(tenantForm.primaryColor)
+                      ? tenantForm.primaryColor
+                      : "#ff385c"
+                  }
+                  onChange={(event) =>
+                    setTenantForm((current) => ({
+                      ...current,
+                      primaryColor: event.target.value,
+                    }))
+                  }
+                />
+                <input
+                  name="primaryColor"
+                  className={styles.hexInput}
+                  placeholder="#ff385c"
+                  pattern="^#[0-9A-Fa-f]{6}$"
+                  value={tenantForm.primaryColor}
+                  onChange={updateTenantField}
+                />
+              </div>
+            </label>
             <div className={styles.formActions}>
               <button type="submit">
                 {editingTenantId ? "Save Tenant Changes" : "Create Tenant"}
@@ -627,36 +726,45 @@ function AdminPanel() {
           <h2>Create Tenant Admin</h2>
           </div>
           <form className={styles.form} onSubmit={handleCreateTenantAdmin}>
-            <select
-              name="tenantId"
-              value={tenantAdminForm.tenantId}
-              onChange={updateTenantAdminField}
-              required
-            >
-              <option value="">Select tenant</option>
-              {tenants.map((tenant) => (
-                <option key={tenant.id} value={tenant.id}>
-                  {tenant.name}
-                </option>
-              ))}
-            </select>
-            <input
-              name="email"
-              type="email"
-              placeholder="Tenant admin email"
-              value={tenantAdminForm.email}
-              onChange={updateTenantAdminField}
-              required
-            />
-            <input
-              name="password"
-              type="password"
-              minLength="8"
-              placeholder="Password"
-              value={tenantAdminForm.password}
-              onChange={updateTenantAdminField}
-              required
-            />
+            <label className={styles.field}>
+              <span>Tenant</span>
+              <select
+                name="tenantId"
+                value={tenantAdminForm.tenantId}
+                onChange={updateTenantAdminField}
+                required
+              >
+                <option value="">Select tenant</option>
+                {tenants.map((tenant) => (
+                  <option key={tenant.id} value={tenant.id}>
+                    {tenant.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.field}>
+              <span>Email</span>
+              <input
+                name="email"
+                type="email"
+                placeholder="Tenant admin email"
+                value={tenantAdminForm.email}
+                onChange={updateTenantAdminField}
+                required
+              />
+            </label>
+            <label className={styles.field}>
+              <span>Password</span>
+              <input
+                name="password"
+                type="password"
+                minLength="8"
+                placeholder="Password"
+                value={tenantAdminForm.password}
+                onChange={updateTenantAdminField}
+                required
+              />
+            </label>
             <button type="submit">Create tenant admin</button>
           </form>
         </section>
@@ -732,6 +840,7 @@ function AdminPanel() {
             </div>
           )}
         </section>
+
       </main>
     );
   }
@@ -806,79 +915,97 @@ function AdminPanel() {
 
       <section
         id="listings"
-        className={`${styles.panel} ${editingPropertyId ? styles.editMode : ""}`}
-        ref={propertyFormRef}
+        className={styles.panel}
       >
-        <div className={`${styles.panelHeader} ${styles.formHeader}`}>
-          <h2>{editingPropertyId ? "Edit Listing" : "Create Listing"}</h2>
-          {editingPropertyId ? (
-            <span className={styles.editBadge}>Edit mode</span>
-          ) : null}
-        </div>
-        {editingPropertyId ? (
-          <div className={styles.editBanner}>
-            Editing property: {editingProperty?.title || propertyForm.title}
-          </div>
-        ) : null}
-
-        <form className={styles.form} onSubmit={handleSaveProperty}>
-          <input
-            name="title"
-            placeholder="Title"
-            value={propertyForm.title}
-            onChange={updatePropertyField}
-            required
-          />
-          <input
-            name="location"
-            placeholder="Location"
-            value={propertyForm.location}
-            onChange={updatePropertyField}
-            required
-          />
-          <input
-            name="price"
-            type="number"
-            min="0"
-            step="1"
-            placeholder="Price"
-            value={propertyForm.price}
-            onChange={updatePropertyField}
-            required
-          />
-          <textarea
-            name="description"
-            placeholder="Description"
-            value={propertyForm.description}
-            onChange={updatePropertyField}
-            required
-          />
-          <div className={styles.formActions}>
-            <button
-              type="button"
-              onClick={handleGenerateDescription}
-              disabled={isGeneratingDescription}
-            >
-              {isGeneratingDescription
-                ? "Generating..."
-                : "Generate AI Description"}
-            </button>
-            <button type="submit">
-              {editingPropertyId
-                ? "Save Listing Changes"
-                : "Create Property"}
-            </button>
+        <div
+          ref={propertyFormRef}
+          className={`${styles.formSurface} ${
+            editingPropertyId ? styles.editMode : ""
+          }`}
+        >
+          <div className={`${styles.panelHeader} ${styles.formHeader}`}>
+            <h2>{editingPropertyId ? "Edit Listing" : "Create Listing"}</h2>
             {editingPropertyId ? (
-              <button
-                className={styles.cancelButton}
-                type="button"
-                onClick={resetPropertyForm}
-              >
-                Cancel Edit
-              </button>
+              <span className={styles.editBadge}>Edit mode</span>
             ) : null}
           </div>
-        </form>
+          {editingPropertyId ? (
+            <div className={styles.editBanner}>
+              Editing property: {editingProperty?.title || propertyForm.title}
+            </div>
+          ) : null}
+
+          <form className={styles.form} onSubmit={handleSaveProperty}>
+            <input
+              name="title"
+              placeholder="Title"
+              value={propertyForm.title}
+              onChange={updatePropertyField}
+              required
+            />
+            <input
+              name="location"
+              placeholder="Location"
+              value={propertyForm.location}
+              onChange={updatePropertyField}
+              required
+            />
+            <input
+              name="price"
+              type="number"
+              min="0"
+              step="1"
+              placeholder="Price"
+              value={propertyForm.price}
+              onChange={updatePropertyField}
+              required
+            />
+            <select
+              name="cancellationPolicyId"
+              value={propertyForm.cancellationPolicyId}
+              onChange={updatePropertyField}
+            >
+              <option value="">Cancellation policy</option>
+              {cancellationPolicies.map((policy) => (
+                <option key={policy.id} value={policy.id}>
+                  {policy.name}
+                </option>
+              ))}
+            </select>
+            <textarea
+              name="description"
+              placeholder="Description"
+              value={propertyForm.description}
+              onChange={updatePropertyField}
+              required
+            />
+            <div className={styles.formActions}>
+              <button
+                type="button"
+                onClick={handleGenerateDescription}
+                disabled={isGeneratingDescription}
+              >
+                {isGeneratingDescription
+                  ? "Generating..."
+                  : "Generate AI Description"}
+              </button>
+              <button type="submit">
+                {editingPropertyId
+                  ? "Save Listing Changes"
+                  : "Create Property"}
+              </button>
+              {editingPropertyId ? (
+                <button
+                  className={styles.cancelButton}
+                  type="button"
+                  onClick={resetPropertyForm}
+                >
+                  Cancel Edit
+                </button>
+              ) : null}
+            </div>
+          </form>
+        </div>
 
         {properties.length === 0 ? (
           <div className={styles.empty}>No properties found.</div>
@@ -902,6 +1029,69 @@ function AdminPanel() {
                   <span className={styles.statusBadge}>
                     {property.status || "ACTIVE"}
                   </span>
+                  <div className={styles.inlineManager}>
+                    <strong>Blocked dates</strong>
+                    {Array.isArray(property.availability) &&
+                    property.availability.length ? (
+                      property.availability.map((block) => (
+                        <span key={block.id}>
+                          {formatDate(block.startDate)} to{" "}
+                          {formatDate(block.endDate)}
+                          {block.reason ? ` - ${block.reason}` : ""}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAvailability(block.id)}
+                          >
+                            Remove
+                          </button>
+                        </span>
+                      ))
+                    ) : (
+                      <span>No blocked dates.</span>
+                    )}
+                    <div className={styles.inlineForm}>
+                      <input
+                        type="date"
+                        value={availabilityForms[property.id]?.startDate || ""}
+                        onChange={(event) =>
+                          updateAvailabilityField(
+                            property.id,
+                            "startDate",
+                            event.target.value,
+                          )
+                        }
+                      />
+                      <input
+                        type="date"
+                        value={availabilityForms[property.id]?.endDate || ""}
+                        onChange={(event) =>
+                          updateAvailabilityField(
+                            property.id,
+                            "endDate",
+                            event.target.value,
+                          )
+                        }
+                      />
+                      <input
+                        type="text"
+                        placeholder="Reason"
+                        value={availabilityForms[property.id]?.reason || ""}
+                        onChange={(event) =>
+                          updateAvailabilityField(
+                            property.id,
+                            "reason",
+                            event.target.value,
+                          )
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddAvailability(property.id)}
+                      >
+                        Block dates
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -993,7 +1183,6 @@ function AdminPanel() {
             onChange={(event) => loadReviews(event.target.value)}
           >
             <option value="all">All properties</option>
-            <option value="">Select property</option>
             {properties.map((property) => (
               <option key={property.id} value={property.id}>
                 {property.title}
@@ -1021,11 +1210,20 @@ function AdminPanel() {
                   </span>
                   {review.analysis ? (
                     <div className={styles.aiAnalysis}>
-                      <strong>AI Sentiment: {review.analysis.sentiment}</strong>
-                      <span>AI Summary: {review.analysis.summary}</span>
-                      <span>
-                        AI Issue: {review.analysis.issue || "No issue detected"}
-                      </span>
+                      <p>
+                        <strong>AI Sentiment:</strong>{" "}
+                        {review.analysis.sentiment || "ANALYZED"}
+                      </p>
+                      <p>
+                        <strong>AI Summary:</strong>{" "}
+                        {review.analysis.summary || "No summary available."}
+                      </p>
+                      <p>
+                        <strong>AI Issue:</strong>{" "}
+                        {review.analysis.issue === "No issue detected"
+                          ? "No issue detected."
+                          : review.analysis.issue || "No issue detected."}
+                      </p>
                     </div>
                   ) : (
                     <div className={styles.aiPending}>AI analysis pending...</div>

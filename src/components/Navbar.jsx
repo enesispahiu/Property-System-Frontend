@@ -18,15 +18,19 @@ function Navbar() {
       { to: '/my-bookings', label: 'My Bookings' },
       { to: '/my-favorites', label: 'My Favorites' },
       { to: '/my-reviews', label: 'My Reviews' },
+      { to: '/notifications', label: 'Notifications' },
     ],
     TENANT_ADMIN: [
       { to: '/dashboard', label: 'Business Dashboard' },
       { to: '/business/operations', label: 'Business Operations' },
       { to: '/business/reviews', label: 'Guest Reviews' },
+      { to: '/notifications', label: 'Notifications' },
     ],
     SUPER_ADMIN: [
       { to: '/dashboard', label: 'Platform Dashboard' },
       { to: '/platform/tenant-management', label: 'Tenant Management' },
+      { to: '/platform/search-analytics', label: 'Search Analytics' },
+      { to: '/notifications', label: 'Notifications' },
     ],
   };
 
@@ -54,7 +58,7 @@ function Navbar() {
         </div>
         <div className={styles.actions}>
           {isAuthenticated ? (
-            <button className={styles.hostButton} onClick={handleLogout}>
+            <button className={styles.logoutButton} onClick={handleLogout}>
               Logout
             </button>
           ) : (
@@ -68,7 +72,7 @@ function Navbar() {
                 Login
               </NavLink>
               <NavLink to="/signup" className={styles.hostButton}>
-                Signup
+                Sign Up
               </NavLink>
             </>
           )}

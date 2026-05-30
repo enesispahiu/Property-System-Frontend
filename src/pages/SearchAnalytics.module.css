@@ -1,0 +1,156 @@
+.page {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 52px 0 76px;
+}
+
+.heading {
+  margin-bottom: 24px;
+}
+
+.heading h1 {
+  margin: 12px 0 10px;
+  color: #111827;
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 1;
+}
+
+.heading p {
+  max-width: 760px;
+  margin: 0;
+  color: #64748b;
+}
+
+.eyebrow {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 850;
+}
+
+.panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  padding: 22px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.panelHeader h2 {
+  margin: 0;
+  color: #111827;
+}
+
+.panelEyebrow {
+  margin: 0 0 5px;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.table {
+  display: grid;
+  gap: 10px;
+}
+
+.row {
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #edf2f7;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.row div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.row strong {
+  color: #111827;
+  overflow-wrap: anywhere;
+}
+
+.row span,
+.row time {
+  color: #64748b;
+  font-weight: 750;
+}
+
+.row time {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.panel button {
+  min-height: 38px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  padding: 0 14px;
+  background: #ffffff;
+  color: #2563eb;
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.moreActions {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.moreActions button {
+  min-width: 132px;
+}
+
+.empty,
+.error {
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 28px;
+  color: #64748b;
+  text-align: center;
+  font-weight: 800;
+}
+
+.error {
+  border-style: solid;
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+@media (max-width: 820px) {
+  .page {
+    width: min(100% - 28px, 680px);
+  }
+
+  .panelHeader,
+  .row {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .row time {
+    text-align: left;
+  }
+}

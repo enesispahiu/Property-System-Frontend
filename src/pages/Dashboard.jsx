@@ -515,7 +515,13 @@ function Dashboard() {
       ),
     );
 
-    const allReviews = reviewGroups.flat();
+    const allReviews = reviewGroups
+      .flat()
+      .sort(
+        (left, right) =>
+          new Date(right.createdAt || 0).getTime() -
+          new Date(left.createdAt || 0).getTime(),
+      );
 
     if (currentUser.role === "USER") {
       return allReviews.filter((review) => review.userId === currentUser.id);
